@@ -35,22 +35,23 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                     id: user.id,
                     name: user.name,
                     email: user.email,
-                    role: role
+                    role: role,
+                    plan: (user as any).plan || 'free',
+                    organizationId: user.memberships[0]?.organizationId
                 };
             },
         }),
     ],
     pages: {
         signIn: '/login',
-        // newUser: '/signup' // Optional
     },
     callbacks: {
         async session({ session, token }: any) {
             if (token) {
                 session.user.id = token.sub;
                 session.user.role = token.role;
-                // Add organizationId to session for convenience if needed later
-                // session.user.organizationId = token.organizationId; 
+                session.user.plan = token.plan;
+                session.user.organizationId = token.organizationId;
             }
             return session;
         },
@@ -58,6 +59,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             if (user) {
                 token.role = (user as any).role;
                 token.id = user.id;
+                token.plan = (user as any).plan;
+                token.organizationId = (user as any).organizationId;
             }
             return token;
         }

@@ -4,10 +4,17 @@ import React, { useState } from 'react';
 import styles from './connections.module.css';
 import { CheckCircle, AlertCircle, RefreshCw, Loader2, ArrowRight } from 'lucide-react';
 import { useApp } from '@/hooks/useApp';
+import { useSession } from 'next-auth/react';
+import Link from 'next/link';
 
 export default function ConnectionsPage() {
     const { connections, toggleConnection } = useApp();
-    // Using global state for connections instead of local mock state
+    const { data: session } = useSession();
+
+    // Plan Logic
+    const userPlan = (session?.user as any)?.plan || 'free';
+    const activeCount = connections.filter(c => c.status === 'connected' || c.status === 'syncing').length;
+    const isLimitReached = userPlan === 'free' && activeCount >= 1;
 
     const renderCard = (item: any) => {
         const isSyncing = item.status === 'syncing';
@@ -28,7 +35,7 @@ export default function ConnectionsPage() {
                             <span className={styles.platformName}>{item.name}</span>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
                                 <span className={`${styles.status} ${isConnected ? styles.statusConnected :
-                                        isError ? styles.statusError : styles.statusDisconnected
+                                    isError ? styles.statusError : styles.statusDisconnected
                                     }`}>
                                     {isSyncing ? 'Synchronisation...' :
                                         isConnected ? 'Connecté & Actif' :
@@ -58,8 +65,8 @@ export default function ConnectionsPage() {
                 <button
                     className={`${styles.button} ${isConnected ? styles.btnManage : styles.btnConnect}`}
                     onClick={() => toggleConnection(item.id)}
-                    disabled={isSyncing}
-                    style={{ position: 'relative', overflow: 'hidden' }}
+                    disabled={isSyncing || (!isConnected && isLimitReached)}
+                    style={{ position: 'relative', overflow: 'hidden', opacity: (!isConnected && isLimitReached) ? 0.5 : 1 }}
                 >
                     {isSyncing ? (
                         <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
@@ -83,6 +90,27 @@ export default function ConnectionsPage() {
                 <h1 className={styles.title}>Connexions & Sources</h1>
                 <p className={styles.subtitle}>Gérez vos intégrations via l&apos;API sécurisée (OAuth).</p>
             </div>
+
+            {/* Paywall Banner */}
+            {isLimitReached && (
+                <div style={{
+                    marginBottom: '2rem', padding: '1rem', background: 'rgba(212, 175, 55, 0.1)',
+                    border: '1px solid #D4AF37', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between'
+                }}>
+                    <div>
+                        <strong style={{ color: '#D4AF37' }}>Limite du plan gratuit atteinte</strong>
+                        <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.9rem', color: '#ccc' }}>
+                            Passez au Premium pour connecter des sources illimitées.
+                        </p>
+                    </div>
+                    <Link href="/pricing" style={{
+                        background: '#D4AF37', color: '#000', padding: '0.5rem 1rem', borderRadius: '6px',
+                        fontWeight: 600, textDecoration: 'none', fontSize: '0.9rem'
+                    }}>
+                        Voir Premium →
+                    </Link>
+                </div>
+            )}
 
             <div className={styles.section}>
                 <h2 className={styles.sectionTitle}>E-Commerce (CMS)</h2>

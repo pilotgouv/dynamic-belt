@@ -13,10 +13,12 @@ import {
     Link as LinkIcon,
     Settings,
     RefreshCw,
-    FileText
+    FileText,
+    LogOut
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { signOut } from 'next-auth/react';
 
 const MENU_ITEMS = [
     { label: 'Vue Générale', icon: LayoutDashboard, path: '/' },
@@ -85,11 +87,20 @@ export default function Sidebar() {
                 </div>
 
                 <div className={styles.user}>
-                    <div className={styles.avatar}>M</div>
-                    <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <span style={{ lineHeight: 1 }}>Mon Compte</span>
-                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Premium</span>
-                    </div>
+                    <Link href="/account" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', textDecoration: 'none', color: 'inherit', flex: 1 }}>
+                        <div className={styles.avatar}>M</div>
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                            <span style={{ lineHeight: 1 }}>Mon Compte</span>
+                            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Gérer</span>
+                        </div>
+                    </Link>
+                    <button
+                        onClick={() => signOut({ callbackUrl: '/login' })}
+                        style={{ background: 'none', border: 'none', color: '#666', cursor: 'pointer', padding: 4 }}
+                        title="Déconnexion"
+                    >
+                        <LogOut size={16} />
+                    </button>
                 </div>
             </div>
         </aside>

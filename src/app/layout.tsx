@@ -16,6 +16,8 @@ export const metadata: Metadata = {
 import Sidebar from "@/components/Sidebar";
 import { AppProvider } from "@/hooks/useApp";
 
+import { Providers } from "@/components/Providers";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -24,12 +26,14 @@ export default function RootLayout({
   return (
     <html lang="fr" className={inter.variable}>
       <body>
-        <AppProvider>
-          <Sidebar />
-          <main style={{ marginLeft: "250px", width: "calc(100% - 250px)", minHeight: "100vh", padding: "2rem" }}>
-            {children}
-          </main>
-        </AppProvider>
+        <Providers>
+          <AppProvider>
+            <Sidebar />
+            <main style={{ marginLeft: "250px", width: "calc(100% - 250px)", minHeight: "100vh", padding: "2rem" }}>
+              {children}
+            </main>
+          </AppProvider>
+        </Providers>
       </body>
     </html>
   );

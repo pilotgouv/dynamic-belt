@@ -81,10 +81,95 @@ export default function ReportBuilder() {
         setShowExportMenu(false);
     };
 
+    const [showSaveModal, setShowSaveModal] = useState(false);
+    const [reportName, setReportName] = useState('');
+
+    const handleSave = async () => {
+        if (!reportName) return;
+        try {
+            // Mock Org ID
+            const organizationId = '6f2e9c1b-4d3a-4b5c-8d6e-7f8a9b0c1d2e';
+
+            const res = await fetch('/api/reports', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: reportName,
+                    config: config,
+                    organizationId
+                })
+            });
+
+            if (!res.ok) {
+                const d = await res.json();
+                throw new Error(d.error || 'Erreur sauvegarde');
+            }
+
+            alert("Rapport sauvegardé !");
+            setShowSaveModal(false);
+            // Optionally redirect/refresh
+        } catch (e: any) {
+            alert(e.message);
+        }
+    };
+
     return (
         <div className={styles.builderContainer}>
+            {/* Save Modal Overlay */}
+            {showSaveModal && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+                    background: 'rgba(0,0,0,0.7)', zIndex: 100,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center'
+                }}>
+                    <div style={{
+                        background: '#111', border: '1px solid #333', padding: '2rem',
+                        borderRadius: '12px', width: '400px'
+                    }}>
+                        <h3 style={{ marginTop: 0 }}>Sauvegarder le Rapport</h3>
+                        <label style={{ display: 'block', marginBottom: '0.5rem', color: '#ccc' }}>Nom du rapport</label>
+                        <input
+                            value={reportName}
+                            onChange={e => setReportName(e.target.value)}
+                            style={{
+                                width: '100%', padding: '0.75rem', background: '#000', border: '1px solid #333',
+                                borderRadius: '6px', color: '#fff', marginBottom: '1.5rem'
+                            }}
+                            placeholder="Ex: Performance Q1"
+                        />
+                        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+                            <button onClick={() => setShowSaveModal(false)} style={{ background: 'transparent', border: '1px solid #333', color: '#fff', padding: '0.5rem 1rem', borderRadius: '6px', cursor: 'pointer' }}>Annuler</button>
+                            <button onClick={handleSave} style={{ background: '#D4AF37', border: 'none', color: '#000', padding: '0.5rem 1rem', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>Sauvegarder</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <div className={styles.controls}>
                 <h3>Configuration</h3>
+
+                {/* ... existing controls ... */}
+
+                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
+                    <button
+                        className={styles.runButton}
+                        onClick={runReport}
+                        disabled={loading}
+                        style={{ flex: 1, marginTop: 0 }}
+                    >
+                        {loading ? 'Calcul...' : 'Générer'}
+                    </button>
+                    {result && (
+                        <button
+                            className={styles.secondaryButton}
+                            onClick={() => setShowSaveModal(true)}
+                            style={{ flex: 0.5, marginTop: 0 }}
+                        >
+                            💾
+                        </button>
+                    )}
+                </div>
+
 
                 <div className={styles.controlGroup}>
                     <label>Période</label>
@@ -117,13 +202,7 @@ export default function ReportBuilder() {
                     </select>
                 </div>
 
-                <button
-                    className={styles.runButton}
-                    onClick={runReport}
-                    disabled={loading}
-                >
-                    {loading ? 'Calcul en cours...' : 'Générer le Rapport'}
-                </button>
+
 
                 {result && (
                     <div style={{ position: 'relative', marginTop: '1rem' }}>

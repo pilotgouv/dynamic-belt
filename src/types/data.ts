@@ -7,7 +7,7 @@ export interface UserSettings {
         platformFeesPercent: number; // e.g. 2.9 for Stripe/Shopify
         shippingCostAvg: number; // e.g. 5.50
         returnRatePercent: number; // e.g. 10
-        cogsEsitmatedPercent: number; // e.g. 30 (generic margin if no SKU data)
+        cogsEstimatedPercent: number; // e.g. 30 (generic margin if no SKU data)
     };
     targets: {
         minRoas: number;

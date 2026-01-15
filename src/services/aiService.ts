@@ -10,8 +10,9 @@ export class AiService {
     static async generateDailyBriefing(organizationId: string, date: Date): Promise<string> {
 
         // Fetch data
-        const finance = await prisma.financeDaily.findUnique({
-            where: { organizationId_date: { organizationId, date } }
+        // Fetch data (Aggregated from all channels)
+        const finances = await prisma.financeDaily.findMany({
+            where: { organizationId, date }
         });
 
         const ads = await prisma.adsDaily.findMany({
@@ -19,13 +20,21 @@ export class AiService {
         });
 
         const settingsRecord = await prisma.settings.findUnique({ where: { organizationId } });
-        if (!finance || !settingsRecord) {
+        if (finances.length === 0 || !settingsRecord) {
             return "Données insuffisantes pour l'analyse IA ce matin.";
         }
 
+        // Aggregate Finance
+        const finance = {
+            revenueGross: finances.reduce((sum, f) => sum + f.revenueGross, 0),
+            marginPercent: 0 // calc below
+        };
+        const profitTotal = finances.reduce((sum, f) => sum + f.profitEstimated, 0);
+        finance.marginPercent = finance.revenueGross > 0 ? (profitTotal / finance.revenueGross) * 100 : 0;
+
         const settings: any = {
             costProfile: {
-                cogsEsitmatedPercent: settingsRecord.cogsEstimatedPercent || 40
+                cogsEstimatedPercent: settingsRecord.cogsEstimatedPercent || 40
             }
         };
 

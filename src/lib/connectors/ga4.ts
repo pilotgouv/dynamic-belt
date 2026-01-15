@@ -1,4 +1,4 @@
-import { DataSourceConnector, ConnectorResult } from "./types";
+import { DataSourceConnector, ConnectorResult, ConnectorCapability } from "./types";
 
 interface GA4DailyRow {
     date: string; // YYYYMMDD
@@ -13,6 +13,7 @@ interface GA4DailyRow {
 
 export class GA4Connector implements DataSourceConnector {
     provider = 'ga4';
+    capabilities: ConnectorCapability[] = ['traffic'];
     private accessToken: string;
     private propertyId: string;
 

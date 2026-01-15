@@ -31,7 +31,7 @@ export async function GET(req: Request) {
 
         // Get Last Sync Log
         const connections = await prisma.connection.findMany({ where: { organizationId: orgId }, select: { id: true } });
-        const lastLog = await prisma.syncRun.findFirst({
+        const lastLog = await prisma.syncLog.findFirst({
             where: { connectionId: { in: connections.map(c => c.id) } },
             orderBy: { finishedAt: 'desc' }
         });

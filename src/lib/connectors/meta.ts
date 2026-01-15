@@ -1,7 +1,8 @@
-import { DataSourceConnector, ConnectorResult } from "./types";
+import { DataSourceConnector, ConnectorResult, ConnectorCapability } from "./types";
 
 export class MetaAdsConnector implements DataSourceConnector {
     provider = 'meta_ads';
+    capabilities: ConnectorCapability[] = ['ads'];
     private accessToken: string;
     private adAccountId: string;
 
@@ -19,7 +20,7 @@ export class MetaAdsConnector implements DataSourceConnector {
         return !!this.accessToken;
     }
 
-    async sync(fromDate: Date, toDate: Date): Promise<ConnectorResult> {
+    async sync(fromDate: Date, toDate: Date, options: { fullSync?: boolean } = {}): Promise<ConnectorResult> {
         const result: ConnectorResult = {
             success: false,
             importedCount: 0,

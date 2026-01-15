@@ -32,7 +32,7 @@ export class ReportService {
                 platformFeesPercent: settingsRecord?.platformFeesPercent || 2.9,
                 shippingCostAvg: settingsRecord?.shippingCostAvg || 0,
                 returnRatePercent: settingsRecord?.returnRatePercent || 0,
-                cogsEsitmatedPercent: settingsRecord?.cogsEstimatedPercent || 40,
+                cogsEstimatedPercent: settingsRecord?.cogsEstimatedPercent || 40,
             },
             targets: { minRoas: 2.5, minMargin: 20 }
         };
@@ -160,7 +160,7 @@ export class ReportService {
             const channelSeries = Array.from(channelMap.values()).map(c => {
                 // Estimate Contribution
                 // Gross Margin = Rev * (1 - (cogs% / 100))
-                const estMarginPercent = 100 - settings.costProfile.cogsEsitmatedPercent;
+                const estMarginPercent = 100 - settings.costProfile.cogsEstimatedPercent;
                 const grossMargin = c.revenue * (estMarginPercent / 100);
                 const contribution = grossMargin - c.spend;
 

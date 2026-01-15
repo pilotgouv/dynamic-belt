@@ -1,7 +1,8 @@
-import { DataSourceConnector, ConnectorResult } from "./types";
+import { DataSourceConnector, ConnectorResult, ConnectorCapability } from "./types";
 
 export class WooCommerceConnector implements DataSourceConnector {
     provider = 'woocommerce';
+    capabilities: ConnectorCapability[] = ['sales', 'refunds'];
     private storeUrl: string;
     private consumerKey: string;
     private consumerSecret: string;
@@ -44,7 +45,7 @@ export class WooCommerceConnector implements DataSourceConnector {
         }
     }
 
-    async sync(fromDate: Date, toDate: Date, options: { deepSync?: boolean } = {}): Promise<ConnectorResult> {
+    async sync(fromDate: Date, toDate: Date, options: { deepSync?: boolean, fullSync?: boolean } = {}): Promise<ConnectorResult> {
         const result: ConnectorResult = {
             success: false,
             importedCount: 0,
@@ -58,7 +59,7 @@ export class WooCommerceConnector implements DataSourceConnector {
         let hasMore = true;
 
         // Force Deep Sync if requested or if date is very old
-        const isDeepSync = options.deepSync || fromDate.getFullYear() <= 2020;
+        const isDeepSync = options.deepSync || options.fullSync || fromDate.getFullYear() <= 2020;
 
         console.log(`[WooCommerce] Starting Sync. DeepSync: ${isDeepSync}. From ${fromDate.toISOString()}`);
 

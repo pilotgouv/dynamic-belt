@@ -47,10 +47,10 @@ export default function SettingsPage() {
                     <span className={styles.label}>Marge COGS Estimée (%)</span>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                         <input
-                            name="cogsEsitmatedPercent"
+                            name="cogsEstimatedPercent"
                             type="number"
                             className={styles.input}
-                            value={profile.cogsEsitmatedPercent}
+                            value={profile.cogsEstimatedPercent}
                             onChange={handleCostChange}
                         />
                         <span className={styles.unit}>% du CA</span>

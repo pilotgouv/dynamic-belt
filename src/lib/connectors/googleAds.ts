@@ -1,7 +1,8 @@
-import { DataSourceConnector, ConnectorResult } from "./types";
+import { DataSourceConnector, ConnectorResult, ConnectorCapability } from "./types";
 
 export class GoogleAdsConnector implements DataSourceConnector {
     provider = 'google_ads';
+    capabilities: ConnectorCapability[] = ['ads'];
     private accessToken: string;
     private customerId: string; // The Google Ads Account ID
 

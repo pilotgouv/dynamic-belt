@@ -7,7 +7,7 @@ export const DEFAULT_SETTINGS: UserSettings = {
         platformFeesPercent: 2.9, // Stripe + Shopify
         shippingCostAvg: 4.50,
         returnRatePercent: 8,
-        cogsEsitmatedPercent: 40 // ~60% Gross Margin
+        cogsEstimatedPercent: 40 // ~60% Gross Margin
     },
     targets: {
         minRoas: 2.5,
@@ -22,11 +22,11 @@ export const DEFAULT_SETTINGS: UserSettings = {
 export class BusinessEngine {
 
     static calculateProfit(revenueGross: number, refundsValue: number, adSpend: number, orders: number, settings: UserSettings): Partial<FinanceDailyMetric> {
-        const { platformFeesPercent, shippingCostAvg, cogsEsitmatedPercent } = settings.costProfile;
+        const { platformFeesPercent, shippingCostAvg, cogsEstimatedPercent } = settings.costProfile;
 
         const fees = revenueGross * (platformFeesPercent / 100);
         const shipping = orders * shippingCostAvg;
-        const cogs = revenueGross * (cogsEsitmatedPercent / 100);
+        const cogs = revenueGross * (cogsEstimatedPercent / 100);
 
         // Net Revenue: Use real refunds if available, otherwise estimate
         const refundAmount = refundsValue > 0 ? refundsValue : (revenueGross * (settings.costProfile.returnRatePercent / 100));
@@ -65,7 +65,7 @@ export class BusinessEngine {
         return adsData.map(ad => {
             // Breakeven ROAS = 1 / (Gross Margin %)
             // e.g. if Margin is 60% (0.6), BE ROAS = 1.66
-            const grossMarginParam = 1 - (settings.costProfile.cogsEsitmatedPercent / 100);
+            const grossMarginParam = 1 - (settings.costProfile.cogsEstimatedPercent / 100);
             const breakevenRoas = 1 / grossMarginParam;
 
             // Add buffer for OpEx (shipping/fees) roughly 15%
@@ -78,7 +78,7 @@ export class BusinessEngine {
             // Estimated Contribution (Revenue attributed via ROAS - Spend)
             // Revenue = Spend * ROAS
             const estimatedRevenue = ad.spend * ad.roas;
-            const estimatedCogs = estimatedRevenue * (settings.costProfile.cogsEsitmatedPercent / 100);
+            const estimatedCogs = estimatedRevenue * (settings.costProfile.cogsEstimatedPercent / 100);
             const estimatedProfit = estimatedRevenue - ad.spend - estimatedCogs;
 
             return {

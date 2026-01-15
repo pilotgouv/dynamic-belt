@@ -1,4 +1,4 @@
-import { DataSourceConnector, ConnectorResult } from "./types";
+import { DataSourceConnector, ConnectorResult, ConnectorCapability } from "./types";
 
 // Types specific to Shopify API responses
 interface ShopifyOrder {
@@ -16,6 +16,7 @@ interface ShopifyOrder {
 
 export class ShopifyConnector implements DataSourceConnector {
     provider = 'shopify';
+    capabilities: ConnectorCapability[] = ['sales', 'refunds'];
     private accessToken: string;
     private shopDomain: string;
 
@@ -41,7 +42,7 @@ export class ShopifyConnector implements DataSourceConnector {
         }
     }
 
-    async sync(fromDate: Date, toDate: Date): Promise<ConnectorResult> {
+    async sync(fromDate: Date, toDate: Date, options: { fullSync?: boolean } = {}): Promise<ConnectorResult> {
         const result: ConnectorResult = {
             success: false,
             importedCount: 0,

@@ -12,6 +12,17 @@ import { useSession } from 'next-auth/react';
 const PROVIDERS = {
     SHOPIFY: { label: 'Shopify', icon: '🛍️', fields: ['shopDomain', 'accessToken'] },
     WOOCOMMERCE: { label: 'WooCommerce', icon: '🛒', fields: ['storeUrl', 'consumerKey', 'consumerSecret'] },
+    AMAZON_SELLER: {
+        label: 'Amazon Seller',
+        icon: '📦',
+        fields: ['region', 'marketplaceIds', 'lwaClientId', 'lwaClientSecret', 'lwaRefreshToken', 'awsAccessKeyId', 'awsSecretAccessKey'],
+        placeholders: { marketplaceIds: 'Comma separated (e.g. A1PA..., A1R...)' }
+    },
+    AMAZON_ADS: {
+        label: 'Amazon Ads',
+        icon: '📣',
+        fields: ['region', 'profileId', 'lwaClientId', 'lwaClientSecret', 'lwaRefreshToken'],
+    },
     GOOGLE_ADS: { label: 'Google Ads', icon: '📈', fields: ['customerId', 'accessToken', 'refreshToken', 'developerToken'] },
     META_ADS: { label: 'Meta Ads', icon: '📘', fields: ['adAccountId', 'accessToken'] },
     TIKTOK_ADS: { label: 'TikTok Ads', icon: '🎵', fields: ['advertiserId', 'accessToken'] },
@@ -85,14 +96,24 @@ export default function ConnectionsPage() {
         fetchConnections();
     };
 
+    // Pre-process Data
+    const prepareData = () => {
+        const data = { ...formData };
+        if (selectedProvider === 'AMAZON_SELLER' && data.marketplaceIds && typeof data.marketplaceIds === 'string') {
+            data.marketplaceIds = data.marketplaceIds.split(',').map((s: string) => s.trim());
+        }
+        return data;
+    }
+
     // Handle Test
     const handleTest = async () => {
         setSaving(true);
         setTestResult(null);
         try {
+            const payload = prepareData();
             const res = await fetch('/api/connections/test', {
                 method: 'POST',
-                body: JSON.stringify({ provider: selectedProvider, credentials: formData })
+                body: JSON.stringify({ provider: selectedProvider, credentials: payload })
             });
             const data = await res.json();
             setTestResult(data);
@@ -107,22 +128,18 @@ export default function ConnectionsPage() {
 
     // Handle Save
     const handleSave = async () => {
-        // Run test first? Optional. Let's save directly or after test.
-        // User asked for "Test connection" button separate from save? 
-        // "Test credentials without saving OR with optional save".
-        // Let's do: Test -> If success -> Save.
-
         const success = await handleTest();
         if (!success) return;
 
         setSaving(true);
         try {
+            const payload = prepareData();
             const res = await fetch('/api/connections', {
                 method: 'POST',
                 body: JSON.stringify({
                     provider: selectedProvider,
                     name: `${PROVIDERS[selectedProvider as keyof typeof PROVIDERS].label} Store`,
-                    credentials: formData
+                    credentials: payload
                 })
             });
 
@@ -241,24 +258,38 @@ export default function ConnectionsPage() {
             {/* Add New Grid */}
             <h3 style={{ fontSize: '1.2rem', marginBottom: '1.5rem', color: 'var(--text-primary)' }}>Ajouter une connexion</h3>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.5rem' }}>
-                {Object.entries(PROVIDERS).map(([key, info]) => (
-                    <button
-                        key={key}
-                        disabled={limitReached}
-                        onClick={() => { setSelectedProvider(key); setShowModal(true); setFormData({}); setTestResult(null); }}
-                        style={{
-                            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1rem',
-                            padding: '2rem', borderRadius: '12px', border: '1px solid var(--border-subtle)',
-                            background: limitReached ? 'var(--bg-hover)' : 'var(--bg-card)',
-                            opacity: limitReached ? 0.6 : 1,
-                            cursor: limitReached ? 'not-allowed' : 'pointer',
-                            transition: 'all 0.2s'
-                        }}
-                    >
-                        <div style={{ fontSize: '2.5rem' }}>{info.icon}</div>
-                        <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{info.label}</div>
-                    </button>
-                ))}
+                {Object.entries(PROVIDERS).map(([key, info]) => {
+                    // Special handling for Coming Soon
+                    const isComingSoon = key === 'AMAZON_ADS'; // or store in info
+
+                    return (
+                        <button
+                            key={key}
+                            disabled={limitReached || isComingSoon}
+                            onClick={() => {
+                                if (!isComingSoon) {
+                                    setSelectedProvider(key);
+                                    setShowModal(true);
+                                    setFormData({});
+                                    setTestResult(null);
+                                }
+                            }}
+                            style={{
+                                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1rem',
+                                padding: '2rem', borderRadius: '12px', border: '1px solid var(--border-subtle)',
+                                background: (limitReached || isComingSoon) ? 'var(--bg-hover)' : 'var(--bg-card)',
+                                opacity: (limitReached || isComingSoon) ? 0.6 : 1,
+                                cursor: (limitReached || isComingSoon) ? 'not-allowed' : 'pointer',
+                                transition: 'all 0.2s',
+                                position: 'relative'
+                            }}
+                        >
+                            <div style={{ fontSize: '2.5rem' }}>{info.icon}</div>
+                            <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{info.label}</div>
+                            {isComingSoon && <div style={{ position: 'absolute', top: 10, right: 10, fontSize: '0.7rem', background: '#e5e7eb', padding: '2px 6px', borderRadius: '4px' }}>Bientôt</div>}
+                        </button>
+                    )
+                })}
             </div>
 
             {/* Connection Modal */}

@@ -9,9 +9,15 @@ export class AlertService {
     static async generateDailyAlerts(organizationId: string, date: Date) {
 
         // Fetch synchronized data for the day
-        const finance = await prisma.financeDaily.findUnique({
-            where: { organizationId_date: { organizationId, date } }
+        // Fetch aggregated data
+        const financialRecords = await prisma.financeDaily.findMany({
+            where: { organizationId, date }
         });
+
+        const finance = {
+            revenueGross: financialRecords.reduce((sum, f) => sum + f.revenueGross, 0),
+            ordersCount: financialRecords.reduce((sum, f) => sum + f.ordersCount, 0)
+        };
 
         // We aggregate traffic across all sources/mediums for high-level checks
         const trafficRecords = await prisma.trafficDaily.findMany({
@@ -60,7 +66,7 @@ export class AlertService {
         if (settingsRecord) {
             const settings: any = {
                 costProfile: {
-                    cogsEsitmatedPercent: settingsRecord.cogsEstimatedPercent || 40
+                    cogsEstimatedPercent: settingsRecord.cogsEstimatedPercent || 40
                     // other fields not critical for this specific check
                 }
             };

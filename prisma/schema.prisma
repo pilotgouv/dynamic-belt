@@ -29,6 +29,7 @@ model Organization {
 
   memberships   Membership[]
   connections   Connection[]
+  syncLogs      SyncLog[] // Added
   settings      Settings?
   financeDaily  FinanceDaily[]
   adsDaily      AdsDaily[]
@@ -36,6 +37,14 @@ model Organization {
   productDaily  ProductDaily[]
   alerts        Alert[]
   reports       ReportDefinition[]
+  
+  // Unified Data Relations
+  orders        Order[]
+  products      Product[]
+  adAccounts    AdAccount[]
+  adMetrics     AdDailyMetrics[]
+  settlements   SettlementEvent[]
+  pilotScores   PilotScoreDaily[]
 }
 
 // 5. Reporting Engine (V2.5)
@@ -83,13 +92,19 @@ model Membership {
 
 // 2. Integration Connections
 // 2. Integration Connections
+// 2. Integration Connections
 enum Provider {
   SHOPIFY
   WOOCOMMERCE
+  AMAZON_SELLER
+  AMAZON_ADS
   GOOGLE_ADS
   META_ADS
   TIKTOK_ADS
   GA4
+  STRIPE
+  PAYPAL
+  SEARCH_CONSOLE
 }
 
 enum ConnectionStatus {
@@ -107,34 +122,53 @@ model Connection {
   credentialsEncrypted String?    // JSON string encrypted
   
   metadata       Json?            // Public metadata (shop_url, account_id)
+  tags           String[]         // sales_source, ads_source, etc.
+  capabilities   String[]         // sales, ads, refunds, fees, inventory, settlement
   
   lastTestAt     DateTime?
   lastSyncAt     DateTime?
   lastSyncStatus String?
+  lastSyncError  String?
   errorMessage   String?
   
   organizationId String
   organization   Organization     @relation(fields: [organizationId], references: [id])
-  syncRuns       SyncRun[]
+  syncLogs       SyncLog[]
+  
+  // Relations to Normalized Data
+  orders         Order[]
+  products       Product[]
+  adAccounts     AdAccount[]
+  adMetrics      AdDailyMetrics[]
+  settlements    SettlementEvent[]
   
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
   
-  @@unique([organizationId, provider, name]) // Allow multiple accounts per provider if named differently
+  @@unique([organizationId, provider, name])
 }
 
-model SyncRun {
-  id           String     @id @default(uuid())
-  startedAt    DateTime   @default(now())
-  finishedAt   DateTime?
-  status       String     // running, success, failed
-  itemsImported Int       @default(0)
-  details      String?    // JSON or text log
-  connectionId String
-  connection   Connection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+model SyncLog {
+  id              String     @id @default(uuid())
+  startedAt       DateTime   @default(now())
+  finishedAt      DateTime?
+  status          String     // running, success, failed
+  provider        Provider   // Added
+  fromDate        DateTime?  // Added
+  toDate          DateTime?  // Added
+  itemsImported   Int        @default(0)
+  pagesFetched    Int        @default(0)
+  apiErrors       Int        @default(0)
+  durationMs      Int        @default(0)
+  details         String?    // JSON or text log
+  connectionId    String
+  connection      Connection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id])
 }
 
-// 3. User Settings & Cost Profile
+// 3. User Settings & Cost Profile (Existing)
 model Settings {
   id                   String       @id @default(uuid())
   currency             String       @default("EUR")
@@ -149,8 +183,7 @@ model Settings {
   organization         Organization @relation(fields: [organizationId], references: [id])
 }
 
-// 4. Normalized Data Metrics (Daily Granularity)
-
+// 4. Normalized Data Metrics (Daily Granularity - Aggregated Legacy)
 model FinanceDaily {
   id              String       @id @default(uuid())
   date            DateTime     @db.Date
@@ -166,13 +199,14 @@ model FinanceDaily {
   cogs            Float        @default(0)
   profitEstimated Float        @default(0)
   marginPercent   Float        @default(0)
+  channel         String       @default("global") // shopify, amazon, etc.
 
   dataConfidence  Int          @default(0) // 0-100 score
   
   organizationId  String
   organization    Organization @relation(fields: [organizationId], references: [id])
 
-  @@unique([organizationId, date])
+  @@unique([organizationId, date, channel])
 }
 
 model AdsDaily {
@@ -220,7 +254,7 @@ model ProductDaily {
   refunds         Float        @default(0)
   marginEstimated Float        @default(0)
   profitEstimated Float        @default(0)
-  status          String       @default("normal") // hero, toxic, sleeper
+  status          String       @default("normal") 
   
   organizationId  String
   organization    Organization @relation(fields: [organizationId], references: [id])
@@ -240,3 +274,191 @@ model Alert {
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id])
 }
+
+// 6. Unified Normalized Tables (New Architecture)
+
+model Order {
+  id                 String     @id @default(uuid())
+  orgId              String
+  provider           Provider
+  externalId         String     // Woo ID or Amazon Order ID
+  orderNumber        String
+  status             String     // Standardized
+  currency           String     @default("EUR")
+  createdAtSource    DateTime
+  paidAtSource       DateTime?
+  
+  // Financials
+  grossRevenue       Float      @default(0)
+  discounts          Float      @default(0)
+  refunds            Float      @default(0)
+  shippingRevenue    Float      @default(0)
+  taxRevenue         Float      @default(0)
+  netRevenue         Float      @default(0) // Gross - Discounts - Refunds
+  
+  feesTotal          Float      @default(0)
+  cogsTotal          Float      @default(0)
+  profitReal         Float      @default(0)
+  
+  sourceConnectionId String
+  connection         Connection @relation(fields: [sourceConnectionId], references: [id], onDelete: Cascade)
+  organization       Organization @relation(fields: [orgId], references: [id])
+  
+  items              OrderItem[]
+  
+  @@unique([provider, externalId, orgId]) // Prevent duplicates per org
+  @@index([orgId, provider, createdAtSource])
+}
+
+model OrderItem {
+  id                String  @id @default(uuid())
+  orderId           String
+  order             Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orgId             String
+  
+  provider          Provider
+  externalLineId    String? 
+  
+  sku               String?
+  asin              String?
+  productExternalId String?
+  name              String
+  
+  quantity          Int
+  unitPrice         Float
+  lineRevenue       Float
+  
+  discountAllocated Float   @default(0)
+  refundAllocated   Float   @default(0)
+  cogsAllocated     Float   @default(0)
+  feesAllocated     Float   @default(0)
+  profitAllocated   Float   @default(0)
+  
+  @@index([orgId, sku])
+  @@index([orgId, asin])
+}
+
+model Product {
+  id                String    @id @default(uuid())
+  orgId             String
+  providerPrimary   Provider
+  externalId        String?
+  
+  sku               String?
+  asin              String?
+  title             String
+  imageUrl          String?
+  variant           String?   // e.g. 50ml
+  status            String    // ACTIVE, ARCHIVED
+  
+  costUnit          Float?    // User entered COGS
+  stockLevel        Int?      // From inventory sync
+  
+  createdAtSource   DateTime?
+  updatedAtSource   DateTime?
+  
+  sourceConnectionId String?
+  connection         Connection? @relation(fields: [sourceConnectionId], references: [id], onDelete: SetNull)
+  organization       Organization @relation(fields: [orgId], references: [id])
+
+  @@unique([orgId, sku]) // Unique SKU per org
+  @@unique([orgId, asin])
+}
+
+// Ads Performance (Unified)
+model AdAccount {
+  id                 String     @id @default(uuid())
+  orgId              String
+  provider           Provider
+  externalId         String
+  name               String
+  currency           String
+  
+  sourceConnectionId String
+  connection         Connection @relation(fields: [sourceConnectionId], references: [id], onDelete: Cascade)
+  organization       Organization @relation(fields: [orgId], references: [id])
+  
+  campaigns          AdCampaign[]
+  metrics            AdDailyMetrics[]
+  
+  @@unique([orgId, provider, externalId])
+}
+
+model AdCampaign {
+  id                 String     @id @default(uuid())
+  orgId              String
+  provider           Provider
+  externalId         String
+  name               String
+  status             String
+  objective          String?
+  
+  adAccountId        String
+  adAccount          AdAccount  @relation(fields: [adAccountId], references: [id])
+  
+  @@unique([orgId, provider, externalId])
+}
+
+model AdDailyMetrics {
+  id                 String     @id @default(uuid())
+  orgId              String
+  provider           Provider
+  date               DateTime   @db.Date
+  
+  adAccountId        String
+  adAccount          AdAccount  @relation(fields: [adAccountId], references: [id])
+  
+  campaignId         String?    // Link to AdCampaign if possible
+  
+  spend              Float      @default(0)
+  impressions        Int        @default(0)
+  clicks             Int        @default(0)
+  cpc                Float      @default(0)
+  ctr                Float      @default(0)
+  conversions        Int        @default(0)
+  conversionValue    Float      @default(0)
+  roas               Float      @default(0)
+  
+  sourceConnectionId String
+  connection         Connection @relation(fields: [sourceConnectionId], references: [id], onDelete: Cascade)
+  organization       Organization @relation(fields: [orgId], references: [id])
+  
+  @@index([orgId, date, provider])
+}
+
+// Settlements (Amazon/Stripe)
+model SettlementEvent {
+  id                 String     @id @default(uuid())
+  orgId              String
+  provider           Provider
+  
+  postedDate         DateTime
+  type               String     // order, refund, fee, storage, adjustment
+  rawType            String?
+  
+  amount             Float
+  currency           String
+  
+  relatedOrderExternalId String?
+  relatedSku         String?
+  
+  sourceConnectionId String
+  connection         Connection @relation(fields: [sourceConnectionId], references: [id], onDelete: Cascade)
+  organization       Organization @relation(fields: [orgId], references: [id])
+  
+  @@index([orgId, postedDate])
+}
+
+model PilotScoreDaily {
+  id          String   @id @default(uuid())
+  orgId       String
+  date        DateTime @db.Date
+  score       Int
+  breakdown   Json     // { profitability: 30, growth: 20... }
+  reasons     Json     // ["High refunds", "Low ad efficiency"]
+  
+  organization Organization @relation(fields: [orgId], references: [id])
+  @@unique([orgId, date])
+}
+
+

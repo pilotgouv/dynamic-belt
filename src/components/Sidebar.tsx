@@ -34,6 +34,7 @@ const MENU_ITEMS = [
 
 export default function Sidebar() {
     const pathname = usePathname();
+    const [isSyncing, setIsSyncing] = React.useState(false);
 
     return (
         <aside className={styles.sidebar}>
@@ -79,12 +80,26 @@ export default function Sidebar() {
                             justifyContent: 'center',
                             gap: '6px'
                         }}
-                        onClick={() => {
-                            // We'll hook this up to useSyncEngine later or via a context
-                            alert("Synchronisation lancée...");
+                        onClick={async () => {
+                            if (isSyncing) return;
+                            setIsSyncing(true);
+                            try {
+                                const res = await fetch('/api/sync', { method: 'POST', body: JSON.stringify({}) });
+                                if (res.ok) {
+                                    alert("Données synchronisées avec succès. La page va se recharger.");
+                                    window.location.reload();
+                                } else {
+                                    alert("Erreur lors de la synchronisation.");
+                                }
+                            } catch (e) {
+                                console.error(e);
+                                alert("Erreur réseau.");
+                            } finally {
+                                setIsSyncing(false);
+                            }
                         }}
                     >
-                        <RefreshCw size={12} /> Sync. Données
+                        <RefreshCw size={12} className={isSyncing ? "animate-spin" : ""} /> Sync. Données
                     </button>
                 </div>
 

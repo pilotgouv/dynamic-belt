@@ -265,7 +265,7 @@ export default function ReportRunnerView({ report, orgId }: ReportRunnerViewProp
                                                     </tr>
                                                 </thead>
                                                 <tbody>
-                                                    {data.series.slice(0, 50).map((row: any, i: number) => (
+                                                    {data.series.slice(0, 500).map((row: any, i: number) => (
                                                         <tr key={i} style={{ borderBottom: '1px solid #f5f5f5', transition: 'background 0.2s' }}>
                                                             <td style={{ textAlign: 'left', padding: '1rem 1.5rem', fontWeight: 500, color: THEME.text }}>
                                                                 {isProductView ? (

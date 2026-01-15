@@ -50,27 +50,43 @@ export class WooCommerceConnector implements DataSourceConnector {
 
         try {
             // Fetch Orders
-            // WooCommerce uses 'after' and 'before' ISO strings
-            const params = new URLSearchParams({
-                after: fromDate.toISOString(),
-                before: toDate.toISOString(),
-                per_page: '100', // Pagination needed for prod, keeping simple for V2
-                status: 'completed,processing,on-hold'
-            });
+            let page = 1;
+            let hasMore = true;
+            const allOrders: any[] = [];
+            const MAX_PAGES = 100; // Safety cap 10,000 orders
 
-            const url = `${this.storeUrl}/wp-json/wc/v3/orders?${params.toString()}`;
+            while (hasMore && page <= MAX_PAGES) {
+                const params = new URLSearchParams({
+                    after: fromDate.toISOString(),
+                    before: toDate.toISOString(),
+                    per_page: '100',
+                    page: page.toString(),
+                    status: 'completed,processing,on-hold'
+                });
 
-            const res = await fetch(url, {
-                headers: {
-                    "Authorization": this.getAuthHeader()
+                const url = `${this.storeUrl}/wp-json/wc/v3/orders?${params.toString()}`;
+
+                const res = await fetch(url, {
+                    headers: {
+                        "Authorization": this.getAuthHeader()
+                    }
+                });
+
+                if (!res.ok) {
+                    throw new Error(`WooCommerce API Error: ${res.statusText} (${res.status}) on page ${page}`);
                 }
-            });
 
-            if (!res.ok) {
-                throw new Error(`WooCommerce API Error: ${res.statusText} (${res.status})`);
+                const orders = await res.json();
+                allOrders.push(...orders);
+
+                if (orders.length < 100) {
+                    hasMore = false;
+                } else {
+                    page++;
+                }
             }
 
-            const orders = await res.json();
+            const orders = allOrders;
 
             // Normalize
             const dailyMap = new Map<string, { revenue: number, net: number, orders: number, refunds: number }>();

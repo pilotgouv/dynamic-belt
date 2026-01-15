@@ -74,11 +74,13 @@ export class WooCommerceConnector implements DataSourceConnector {
 
             // Normalize
             const dailyMap = new Map<string, { revenue: number, net: number, orders: number, refunds: number }>();
+            const productMap = new Map<string, { name: string, units: number, revenue: number }>();
 
             orders.forEach((order: any) => {
                 const day = order.date_created.split('T')[0];
-                const current = dailyMap.get(day) || { revenue: 0, net: 0, orders: 0, refunds: 0 };
 
+                // Finance Stats
+                const current = dailyMap.get(day) || { revenue: 0, net: 0, orders: 0, refunds: 0 };
                 const total = parseFloat(order.total);
                 const refundTotal = parseFloat(order.refund_total || '0');
 
@@ -88,6 +90,24 @@ export class WooCommerceConnector implements DataSourceConnector {
                     orders: current.orders + 1,
                     refunds: current.refunds + refundTotal
                 });
+
+                // Product Stats
+                if (order.line_items && Array.isArray(order.line_items)) {
+                    order.line_items.forEach((item: any) => {
+                        const key = `${day}::${item.sku || item.product_id}`;
+                        const pCurrent = productMap.get(key) || { name: item.name, units: 0, revenue: 0 };
+
+                        // Handle potential string numbers
+                        const qty = parseFloat(item.quantity) || 0;
+                        const lineTotal = parseFloat(item.total) || 0;
+
+                        productMap.set(key, {
+                            name: item.name,
+                            units: pCurrent.units + qty,
+                            revenue: pCurrent.revenue + lineTotal
+                        });
+                    });
+                }
             });
 
             dailyMap.forEach((val, date) => {
@@ -97,6 +117,19 @@ export class WooCommerceConnector implements DataSourceConnector {
                     revenueNet: val.net,
                     ordersCount: val.orders,
                     refundsValue: val.refunds
+                });
+            });
+
+            productMap.forEach((val, key) => {
+                const [date, sku] = key.split('::');
+                result.productMetrics.push({
+                    date: date,
+                    sku: sku,
+                    name: val.name,
+                    unitsSold: val.units,
+                    revenue: val.revenue,
+                    marginEstimated: 0, // Calculated by Engine later
+                    profitEstimated: 0 // Calculated by Engine later
                 });
             });
 

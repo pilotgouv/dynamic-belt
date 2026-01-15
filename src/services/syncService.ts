@@ -61,6 +61,7 @@ export class SyncService {
 
                     const profitMetrics = BusinessEngine.calculateProfit(
                         dayMetric.revenueGross || 0,
+                        dayMetric.refundsValue || 0,
                         0, // TODO: Fetch AdSpend
                         dayMetric.ordersCount || 0,
                         {
@@ -183,6 +184,38 @@ export class SyncService {
                             engagementRate: traffic.engagementRate || 0,
                             conversions: traffic.conversions || 0,
                             revenue: traffic.revenue || 0
+                        }
+                    });
+                }
+            }
+
+            // C2. Upsert Product Metrics
+            if (result.productMetrics && result.productMetrics.length > 0) {
+                // Batching would be better, but sequential for safety in V2
+                for (const p of result.productMetrics) {
+                    // Check if date is valid
+                    if (!p.date) continue;
+
+                    await prisma.productDaily.upsert({
+                        where: {
+                            organizationId_date_sku: {
+                                organizationId: connection.organizationId,
+                                date: new Date(p.date),
+                                sku: p.sku || 'UNKNOWN'
+                            }
+                        },
+                        update: {
+                            unitsSold: p.unitsSold,
+                            revenue: p.revenue,
+                            name: p.name || 'Unknown Product'
+                        },
+                        create: {
+                            organizationId: connection.organizationId,
+                            date: new Date(p.date),
+                            sku: p.sku || 'UNKNOWN',
+                            name: p.name || 'Unknown Product',
+                            unitsSold: p.unitsSold,
+                            revenue: p.revenue
                         }
                     });
                 }

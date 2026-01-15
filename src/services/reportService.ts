@@ -80,6 +80,64 @@ export class ReportService {
         adsData.forEach(r => allDates.add(getKey(r.date)));
         trafficData.forEach(r => allDates.add(getKey(r.date)));
 
+        // Product Data Fetch (Safe)
+        let productData: any[] = [];
+        if (config.dimensions.includes('product_name') || config.dimensions.includes('sku')) {
+            productData = await prisma.productDaily.findMany({
+                where: { organizationId, date: { gte: range.start, lte: range.end } }
+            });
+        }
+
+        // Special Case: Product Dimension aggregation
+        if (config.dimensions.includes('product_name') || config.dimensions.includes('sku')) {
+            const productMap = new Map<string, any>();
+            productData.forEach(p => {
+                const key = p.name;
+                const curr = productMap.get(key) || { name: key, revenue: 0, units: 0 };
+                productMap.set(key, {
+                    name: key,
+                    revenue: curr.revenue + p.revenue,
+                    units: curr.units + p.unitsSold,
+                    sku: p.sku
+                });
+            });
+
+            const productSeries = Array.from(productMap.values()).map(p => {
+                // Simple Categorization Logic (Mock-ish but logic flows)
+                let status = 'Standard';
+                if (p.revenue > 1000) status = 'Hero';
+                else if (p.units > 50 && p.revenue < 500) status = 'Volume';
+                else if (p.units === 0) status = 'Sleeper';
+
+                return {
+                    date: p.name, // Mapping Name to Date for View compatibility (Table treats first col as Date/Key)
+                    product_name: p.name,
+                    revenue_gross: p.revenue,
+                    revenue_net: p.revenue, // Assuming no COGS data specific yet
+                    units_sold: p.units,
+                    spend: 0, // No attribution yet
+                    profit_estimated: p.revenue * 0.4, // Est 40% margin default
+                    margin_percent: 40,
+                    status: status,
+                    refunds: 0
+                };
+            }).sort((a, b) => b.revenue_gross - a.revenue_gross);
+
+            // Summaries for Products
+            const totalRev = productSeries.reduce((a, b) => a + b.revenue_gross, 0);
+            return {
+                summary: {
+                    total_revenue: totalRev,
+                    total_spend: 0,
+                    total_profit: totalRev * 0.4,
+                    global_margin: 40
+                },
+                series: productSeries,
+                confidence: 'ESTIMATED',
+                confidenceReasons: ['Product Profit estimated at 40% default']
+            };
+        }
+
         const series = Array.from(allDates).sort().map(dateKey => {
             // Find records matching this bucket
             // Note: This is an approximation for day bucket. For week/month we need better filtering.

@@ -22,14 +22,14 @@ import { signOut } from 'next-auth/react';
 import Image from 'next/image';
 
 const MENU_ITEMS = [
-    { label: 'Overview', icon: LayoutDashboard, path: '/dashboard/overview' },
+    { label: 'Vue d\'ensemble', icon: LayoutDashboard, path: '/dashboard/overview' },
     { label: 'Finance', icon: Wallet, path: '/dashboard/finance' },
-    { label: 'Ads Performance', icon: Megaphone, path: '/dashboard/ads' },
-    { label: 'Traffic', icon: Users, path: '/dashboard/traffic' },
-    { label: 'Products', icon: Package, path: '/dashboard/products' },
-    { label: 'Library', icon: FileText, path: '/reports' },
-    { label: 'Connections', icon: LinkIcon, path: '/connections' },
-    { label: 'Account', icon: Users, path: '/account' },
+    { label: 'Performance Ads', icon: Megaphone, path: '/dashboard/ads' },
+    { label: 'Trafic', icon: Users, path: '/dashboard/traffic' },
+    { label: 'Produits', icon: Package, path: '/dashboard/products' },
+    { label: 'Bibliothèque', icon: FileText, path: '/reports' },
+    { label: 'Connexions', icon: LinkIcon, path: '/connections' },
+    { label: 'Mon Compte', icon: Users, path: '/account' },
 ];
 
 export default function Sidebar() {

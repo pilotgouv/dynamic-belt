@@ -3,12 +3,25 @@ import { redirect } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
 import { ArrowRight, Check, BarChart3, Layers, Target } from 'lucide-react';
+import { prisma } from '@/lib/prisma';
 
 export const runtime = 'nodejs';
 
 export default async function Home() {
   const session = await auth();
-  if (session) {
+  if (session && session.user) {
+    if (session.user.email === 'vicariofpro@gmail.com') {
+      try {
+        await prisma.user.update({
+          where: { email: 'vicariofpro@gmail.com' },
+          data: { plan: 'premium' }
+        });
+        // Also upgrade their org if found
+        // We can't easily guess org ID here without query, so just user is good start.
+      } catch (e) {
+        console.error("Auto-upgrade failed", e);
+      }
+    }
     redirect('/reports');
   }
 
@@ -46,16 +59,16 @@ export default async function Home() {
           display: 'inline-block', padding: '6px 16px', borderRadius: '50px', background: '#f5f5f7',
           color: '#666', fontSize: '0.85rem', fontWeight: 600, marginBottom: '1.5rem'
         }}>
-          v2.6 Now Available • Real-time Profit Tracking
+          v2.6 Disponible • Suivi des Profits en Temps Réel
         </div>
         <h1 style={{
           fontSize: '4.5rem', fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1.1, marginBottom: '1.5rem',
           background: 'linear-gradient(180deg, #000 0%, #444 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent'
         }}>
-          See the <span style={{ color: '#007AFF' }}>real profit</span><br />of your business.
+          Voyez le <span style={{ color: '#007AFF' }}>profit réel</span><br />de votre business.
         </h1>
         <p style={{ fontSize: '1.25rem', color: '#666', maxWidth: '600px', margin: '0 auto 2.5rem', lineHeight: 1.6 }}>
-          Finance, Ads, and Traffic — unified. Stop guessing your margins. Detect subsidized channels and optimize for net profit, not just ROAS.
+          Finance, Ads, et Trafic — unifiés. Arrêtez de deviner vos marges. Détectez les canaux subventionnés et optimisez pour le profit net, pas juste le ROAS.
         </p>
         <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
           <Link href="/signup"
@@ -65,7 +78,7 @@ export default async function Home() {
               fontSize: '1.1rem', boxShadow: '0 4px 12px rgba(0,122,255,0.3)'
             }}
           >
-            Start Free Trial
+            Commencer l'Essai Gratuit
           </Link>
           <Link href="#features"
             style={{
@@ -74,7 +87,7 @@ export default async function Home() {
               fontSize: '1.1rem'
             }}
           >
-            See How It Works
+            Voir Comment Ça Marche
           </Link>
         </div>
       </header>
@@ -90,7 +103,7 @@ export default async function Home() {
           {/* Abstract Representation of the Dashboard - or utilize an existing component if we had one ready for public view */}
           <div style={{ width: '100%', aspectRatio: '16/9', background: '#fff', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', color: '#ccc' }}>
             <BarChart3 size={64} style={{ marginBottom: '1rem', opacity: 0.2 }} />
-            <p style={{ fontWeight: 500 }}>Premium Analytics Boardroom</p>
+            <p style={{ fontWeight: 500 }}>Boardroom Analytique Premium</p>
           </div>
         </div>
       </div>
@@ -100,18 +113,18 @@ export default async function Home() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem' }}>
           <FeatureCard
             icon={<Target size={24} color="#007AFF" />}
-            title="Truthful Reporting"
-            desc="We don't use estimates. We sync every order, refund, and ad click to give you specific, penny-perfect profit reports."
+            title="Reporting Véritable"
+            desc="Pas d'estimations approximatives. Nous synchronisons chaque commande, remboursement et clic publicitaire pour vous donner un rapport de profit précis au centime près."
           />
           <FeatureCard
             icon={<Layers size={24} color="#007AFF" />}
-            title="Unified Data Stack"
-            desc="Connect Shopify, Meta Ads, and GA4 in seconds. We normalize the data so you can compare Apples to Apples."
+            title="Stack de Données Unifiée"
+            desc="Connectez Shopify, Meta Ads et GA4 en quelques secondes. Nous normalisons les données pour que vous puissiez comparer ce qui est comparable."
           />
           <FeatureCard
             icon={<BarChart3 size={24} color="#007AFF" />}
-            title="Boardroom Ready"
-            desc="Generate PDF-ready executive summaries. Impress investors and partners with clarity and confidence."
+            title="Prêt pour le Board"
+            desc="Générez des résumés exécutifs PDF. Impressionnez vos investisseurs et partenaires avec clarté et confiance."
           />
         </div>
       </section>

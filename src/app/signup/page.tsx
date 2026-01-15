@@ -4,14 +4,12 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 
 export default function SignupPage() {
     const router = useRouter();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
-
-    // We will auto-login by redirecting to login page with filled email for now 
-    // or we can invoke signIn client side. simpler to redirect to login.
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -58,31 +56,33 @@ export default function SignupPage() {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            background: '#050505',
-            color: '#fff'
+            background: 'var(--bg)',
+            color: 'var(--text)'
         }}>
             <div style={{
                 width: '100%',
                 maxWidth: '400px',
-                padding: '2rem',
-                background: 'rgba(255,255,255,0.03)',
-                border: '1px solid rgba(255,255,255,0.1)',
-                borderRadius: '12px'
+                padding: '2.5rem',
+                background: 'var(--surface)',
+                border: '1px solid var(--border)',
+                borderRadius: '16px',
+                boxShadow: 'var(--shadow-lg)'
             }}>
-                <div style={{ marginBottom: '2rem', textAlign: 'center' }}>
-                    <h1 style={{ fontSize: '1.5rem', fontWeight: 600, marginBottom: '0.5rem' }}>Créer un compte</h1>
-                    <p style={{ color: '#888', fontSize: '0.9rem' }}>Rejoignez PILOT pour piloter votre business.</p>
+                <div style={{ marginBottom: '2rem', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                    <Image src="/brand/logopilot.png" alt="PILOT" width={48} height={48} style={{ marginBottom: '1rem' }} />
+                    <h1 style={{ fontSize: '1.5rem', fontWeight: 600, marginBottom: '0.2rem', color: 'var(--text)' }}>Créer un compte</h1>
+                    <p style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>Rejoignez PILOT pour piloter votre business.</p>
                 </div>
 
                 {error && (
                     <div style={{
                         padding: '0.75rem',
                         marginBottom: '1rem',
-                        background: 'rgba(239, 68, 68, 0.1)',
-                        border: '1px solid rgba(239, 68, 68, 0.2)',
-                        color: '#ef4444',
+                        background: 'rgba(220, 38, 38, 0.1)',
+                        border: '1px solid var(--danger)',
+                        color: 'var(--danger)',
                         borderRadius: '6px',
-                        fontSize: '0.9rem'
+                        fontSize: '0.85rem', fontWeight: 500
                     }}>
                         {error}
                     </div>
@@ -90,58 +90,74 @@ export default function SignupPage() {
 
                 <form onSubmit={handleSubmit}>
                     <div style={{ marginBottom: '1rem' }}>
-                        <label style={{ display: 'block', fontSize: '0.9rem', marginBottom: '0.4rem', color: '#ccc' }}>Nom complet</label>
+                        <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: '0.4rem', color: 'var(--muted)' }}>Nom complet</label>
                         <input name="name" type="text" required
                             style={{
-                                width: '100%', padding: '0.75rem', background: '#000', border: '1px solid #333',
-                                borderRadius: '6px', color: '#fff'
+                                width: '100%', padding: '0.75rem',
+                                background: 'var(--bg)',
+                                border: '1px solid var(--border)',
+                                borderRadius: '8px', color: 'var(--text)',
+                                fontSize: '0.95rem'
                             }}
                         />
                     </div>
 
                     <div style={{ marginBottom: '1rem' }}>
-                        <label style={{ display: 'block', fontSize: '0.9rem', marginBottom: '0.4rem', color: '#ccc' }}>Email pro</label>
+                        <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: '0.4rem', color: 'var(--muted)' }}>Email pro</label>
                         <input name="email" type="email" required
                             style={{
-                                width: '100%', padding: '0.75rem', background: '#000', border: '1px solid #333',
-                                borderRadius: '6px', color: '#fff'
+                                width: '100%', padding: '0.75rem',
+                                background: 'var(--bg)',
+                                border: '1px solid var(--border)',
+                                borderRadius: '8px', color: 'var(--text)',
+                                fontSize: '0.95rem'
                             }}
                         />
                     </div>
 
                     <div style={{ marginBottom: '1rem' }}>
-                        <label style={{ display: 'block', fontSize: '0.9rem', marginBottom: '0.4rem', color: '#ccc' }}>Mot de passe</label>
+                        <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: '0.4rem', color: 'var(--muted)' }}>Mot de passe</label>
                         <input name="password" type="password" required minLength={8}
                             style={{
-                                width: '100%', padding: '0.75rem', background: '#000', border: '1px solid #333',
-                                borderRadius: '6px', color: '#fff'
+                                width: '100%', padding: '0.75rem',
+                                background: 'var(--bg)',
+                                border: '1px solid var(--border)',
+                                borderRadius: '8px', color: 'var(--text)',
+                                fontSize: '0.95rem'
                             }}
                         />
                     </div>
 
                     <div style={{ marginBottom: '1.5rem' }}>
-                        <label style={{ display: 'block', fontSize: '0.9rem', marginBottom: '0.4rem', color: '#ccc' }}>Confirmer</label>
+                        <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: '0.4rem', color: 'var(--muted)' }}>Confirmer</label>
                         <input name="confirm" type="password" required minLength={8}
                             style={{
-                                width: '100%', padding: '0.75rem', background: '#000', border: '1px solid #333',
-                                borderRadius: '6px', color: '#fff'
+                                width: '100%', padding: '0.75rem',
+                                background: 'var(--bg)',
+                                border: '1px solid var(--border)',
+                                borderRadius: '8px', color: 'var(--text)',
+                                fontSize: '0.95rem'
                             }}
                         />
                     </div>
 
                     <button type="submit" disabled={loading}
                         style={{
-                            width: '100%', padding: '0.75rem', background: '#D4AF37', border: 'none',
-                            borderRadius: '6px', color: '#000', fontWeight: 600, cursor: 'pointer',
-                            opacity: loading ? 0.7 : 1
+                            width: '100%', padding: '0.75rem',
+                            background: 'var(--primary-gradient)',
+                            border: 'none',
+                            borderRadius: '8px', color: '#fff',
+                            fontWeight: 600, cursor: 'pointer',
+                            opacity: loading ? 0.7 : 1, transition: 'opacity 0.2s',
+                            boxShadow: 'var(--shadow-md)'
                         }}
                     >
                         {loading ? 'Création...' : "S'inscrire"}
                     </button>
                 </form>
 
-                <div style={{ marginTop: '1.5rem', textAlign: 'center', fontSize: '0.9rem', color: '#888' }}>
-                    Déjà un compte ? <Link href="/login" style={{ color: '#D4AF37', textDecoration: 'none' }}>Se connecter</Link>
+                <div style={{ marginTop: '1.5rem', textAlign: 'center', fontSize: '0.85rem', color: 'var(--muted)' }}>
+                    Déjà un compte ? <Link href="/login" style={{ color: 'var(--primary)', fontWeight: 600, textDecoration: 'none' }}>Se connecter</Link>
                 </div>
             </div>
         </div>

@@ -5,6 +5,7 @@ import React, { useState, Suspense } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 
 function LoginForm() {
     const router = useRouter();
@@ -50,34 +51,35 @@ function LoginForm() {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            background: '#050505',
-            color: '#fff'
+            background: 'var(--bg)',
+            color: 'var(--text)'
         }}>
             <div style={{
                 width: '100%',
                 maxWidth: '400px',
-                padding: '2rem',
-                background: 'rgba(255,255,255,0.03)',
-                border: '1px solid rgba(255,255,255,0.1)',
-                borderRadius: '12px'
+                padding: '2.5rem',
+                background: 'var(--surface)',
+                border: '1px solid var(--border)',
+                borderRadius: '16px',
+                boxShadow: 'var(--shadow-lg)'
             }}>
-                <div style={{ marginBottom: '2rem', textAlign: 'center' }}>
-                    <div style={{ width: 12, height: 12, background: '#D4AF37', borderRadius: '50%', margin: '0 auto 1rem' }} />
-                    <h1 style={{ fontSize: '1.5rem', fontWeight: 600, marginBottom: '0.5rem' }}>Connexion PILOT</h1>
-                    <p style={{ color: '#888', fontSize: '0.9rem' }}>Accédez à votre cockpit.</p>
+                <div style={{ marginBottom: '2rem', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                    <Image src="/brand/logopilot.png" alt="PILOT" width={48} height={48} style={{ marginBottom: '1rem' }} />
+                    <h1 style={{ fontSize: '1.5rem', fontWeight: 600, marginBottom: '0.2rem', color: 'var(--text)' }}>PILOT</h1>
+                    <p style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>Boardroom-grade Business Intelligence</p>
                 </div>
 
                 {created && (
                     <div style={{
                         padding: '0.75rem',
                         marginBottom: '1rem',
-                        background: 'rgba(74, 222, 128, 0.1)',
-                        border: '1px solid rgba(74, 222, 128, 0.2)',
-                        color: '#4ade80',
+                        background: 'rgba(22, 163, 74, 0.1)',
+                        border: '1px solid var(--success)',
+                        color: 'var(--success)',
                         borderRadius: '6px',
-                        fontSize: '0.9rem'
+                        fontSize: '0.85rem', fontWeight: 500
                     }}>
-                        Compte créé avec succès. Connectez-vous.
+                        Welcome Aboard. Compte créé avec succès.
                     </div>
                 )}
 
@@ -85,11 +87,11 @@ function LoginForm() {
                     <div style={{
                         padding: '0.75rem',
                         marginBottom: '1rem',
-                        background: 'rgba(239, 68, 68, 0.1)',
-                        border: '1px solid rgba(239, 68, 68, 0.2)',
-                        color: '#ef4444',
+                        background: 'rgba(220, 38, 38, 0.1)',
+                        border: '1px solid var(--danger)',
+                        color: 'var(--danger)',
                         borderRadius: '6px',
-                        fontSize: '0.9rem'
+                        fontSize: '0.85rem', fontWeight: 500
                     }}>
                         {error}
                     </div>
@@ -97,38 +99,48 @@ function LoginForm() {
 
                 <form onSubmit={handleSubmit}>
                     <div style={{ marginBottom: '1rem' }}>
-                        <label style={{ display: 'block', fontSize: '0.9rem', marginBottom: '0.4rem', color: '#ccc' }}>Email</label>
+                        <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: '0.4rem', color: 'var(--muted)' }}>Email</label>
                         <input name="email" type="email" required
                             style={{
-                                width: '100%', padding: '0.75rem', background: '#000', border: '1px solid #333',
-                                borderRadius: '6px', color: '#fff'
+                                width: '100%', padding: '0.75rem',
+                                background: 'var(--bg)',
+                                border: '1px solid var(--border)',
+                                borderRadius: '8px', color: 'var(--text)',
+                                fontSize: '0.95rem'
                             }}
                         />
                     </div>
 
                     <div style={{ marginBottom: '1.5rem' }}>
-                        <label style={{ display: 'block', fontSize: '0.9rem', marginBottom: '0.4rem', color: '#ccc' }}>Mot de passe</label>
+                        <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: '0.4rem', color: 'var(--muted)' }}>Mot de passe</label>
                         <input name="password" type="password" required
                             style={{
-                                width: '100%', padding: '0.75rem', background: '#000', border: '1px solid #333',
-                                borderRadius: '6px', color: '#fff'
+                                width: '100%', padding: '0.75rem',
+                                background: 'var(--bg)',
+                                border: '1px solid var(--border)',
+                                borderRadius: '8px', color: 'var(--text)',
+                                fontSize: '0.95rem'
                             }}
                         />
                     </div>
 
                     <button type="submit" disabled={loading}
                         style={{
-                            width: '100%', padding: '0.75rem', background: '#D4AF37', border: 'none',
-                            borderRadius: '6px', color: '#000', fontWeight: 600, cursor: 'pointer',
-                            opacity: loading ? 0.7 : 1
+                            width: '100%', padding: '0.75rem',
+                            background: 'var(--primary-gradient)',
+                            border: 'none',
+                            borderRadius: '8px', color: '#fff',
+                            fontWeight: 600, cursor: 'pointer',
+                            opacity: loading ? 0.7 : 1, transition: 'opacity 0.2s',
+                            boxShadow: 'var(--shadow-md)'
                         }}
                     >
                         {loading ? 'Connexion...' : "Se connecter"}
                     </button>
                 </form>
 
-                <div style={{ marginTop: '1.5rem', textAlign: 'center', fontSize: '0.9rem', color: '#888' }}>
-                    Pas encore de compte ? <Link href="/signup" style={{ color: '#D4AF37', textDecoration: 'none' }}>Créer un compte</Link>
+                <div style={{ marginTop: '1.5rem', textAlign: 'center', fontSize: '0.85rem', color: 'var(--muted)' }}>
+                    Pas encore de compte ? <Link href="/signup" style={{ color: 'var(--primary)', fontWeight: 600, textDecoration: 'none' }}>Créer un compte</Link>
                 </div>
             </div>
         </div>

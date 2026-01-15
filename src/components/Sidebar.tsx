@@ -19,6 +19,7 @@ import {
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { signOut } from 'next-auth/react';
+import Image from 'next/image';
 
 const MENU_ITEMS = [
     { label: 'Vue Générale', icon: LayoutDashboard, path: '/' },
@@ -39,8 +40,11 @@ export default function Sidebar() {
     return (
         <aside className={styles.sidebar}>
             <div className={styles.logo}>
-                <div style={{ width: 8, height: 8, background: 'var(--accent-gold)', borderRadius: '50%' }} />
-                PILOT
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Image src="/brand/logopilot.png" alt="PILOT" width={28} height={28} />
+                    <span className="font-semibold tracking-wide" style={{ color: 'var(--text-primary)' }}>PILOT</span>
+                </div>
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px', marginLeft: '36px' }}>Boardroom BI</div>
             </div>
 
             <nav className={styles.nav}>

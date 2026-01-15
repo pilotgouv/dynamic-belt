@@ -1,8 +1,20 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, Calendar, Download, AlertCircle, TrendingUp, TrendingDown, DollarSign, Activity } from 'lucide-react'; // Basic icons
+import { ArrowLeft, Calendar, Download, AlertCircle, TrendingUp } from 'lucide-react';
 import Link from 'next/link';
+import {
+    LineChart,
+    Line,
+    XAxis,
+    YAxis,
+    CartesianGrid,
+    Tooltip,
+    Legend,
+    ResponsiveContainer,
+    BarChart,
+    Bar
+} from 'recharts';
 
 interface ReportRunnerViewProps {
     report: any;
@@ -34,9 +46,9 @@ export default function ReportRunnerView({ report, orgId }: ReportRunnerViewProp
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     organizationId: orgId,
-                    reportDefinitionId: report.id,
+                    reportDefinitionId: report.id, // Can be null for standard dashboard
                     config: config,
-                    range: range // Use current range state
+                    range: range
                 })
             });
 
@@ -59,7 +71,7 @@ export default function ReportRunnerView({ report, orgId }: ReportRunnerViewProp
             <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fff' }}>
                 <div style={{ textAlign: 'center' }}>
                     <div className="animate-spin" style={{ width: '40px', height: '40px', border: '3px solid #f3f3f3', borderTop: '3px solid #000', borderRadius: '50%', margin: '0 auto 1rem' }}></div>
-                    <p style={{ color: '#666' }}>Generating Boardroom Report...</p>
+                    <p style={{ color: '#666' }}>Generating Real-Time Report...</p>
                 </div>
             </div>
         );
@@ -112,45 +124,67 @@ export default function ReportRunnerView({ report, orgId }: ReportRunnerViewProp
                 {/* Main Analysis Section */}
                 <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1.5rem' }}>
 
-                    {/* Big Table */}
-                    <div style={{ background: '#fff', borderRadius: '16px', padding: '1.5rem', border: '1px solid #e1e1e1', boxShadow: '0 4px 6px rgba(0,0,0,0.02)' }}>
-                        <h3 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '1.5rem' }}>Financial Breakdown</h3>
-                        <div style={{ overflowX: 'auto' }}>
-                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.95rem' }}>
-                                <thead>
-                                    <tr style={{ borderBottom: '2px solid #f1f1f1', color: '#888', textAlign: 'right' }}>
-                                        <th style={{ textAlign: 'left', padding: '1rem 0.5rem' }}>Date</th>
-                                        <th style={{ padding: '1rem 0.5rem' }}>Revenue</th>
-                                        <th style={{ padding: '1rem 0.5rem' }}>Spend</th>
-                                        <th style={{ padding: '1rem 0.5rem' }}>Profit</th>
-                                        <th style={{ padding: '1rem 0.5rem' }}>Margin</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {data.series.map((row: any) => (
-                                        <tr key={row.date} style={{ borderBottom: '1px solid #f9f9f9' }}>
-                                            <td style={{ textAlign: 'left', padding: '1rem 0.5rem', fontWeight: 500 }}>{row.date}</td>
-                                            <td style={{ textAlign: 'right', padding: '1rem 0.5rem' }}>{formatCurrency(row.revenue_gross)}</td>
-                                            <td style={{ textAlign: 'right', padding: '1rem 0.5rem', color: '#666' }}>{formatCurrency(row.spend)}</td>
-                                            <td style={{ textAlign: 'right', padding: '1rem 0.5rem', color: row.profit_estimated > 0 ? '#10b981' : '#ef4444', fontWeight: 600 }}>
-                                                {formatCurrency(row.profit_estimated)}
-                                            </td>
-                                            <td style={{ textAlign: 'right', padding: '1rem 0.5rem' }}>{row.margin_percent.toFixed(1)}%</td>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                        {/* Trend Chart */}
+                        <div style={{ background: '#fff', borderRadius: '16px', padding: '1.5rem', border: '1px solid #e1e1e1', height: '400px' }}>
+                            <h3 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '1rem' }}>Revenue vs Profit Trend</h3>
+                            <ResponsiveContainer width="100%" height="100%">
+                                <LineChart data={data.series}>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
+                                    <XAxis dataKey="date" tick={{ fontSize: 12, fill: '#888' }} axisLine={false} tickLine={false} />
+                                    <YAxis tick={{ fontSize: 12, fill: '#888' }} axisLine={false} tickLine={false} tickFormatter={(val) => `${val / 1000}k`} />
+                                    <Tooltip
+                                        contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                                        formatter={(val: any) => typeof val === 'number' ? formatCurrency(val) : val}
+                                        labelStyle={{ color: '#666' }}
+                                    />
+                                    <Legend />
+                                    <Line type="monotone" dataKey="revenue_gross" name="Revenue" stroke="#000" strokeWidth={2} dot={false} activeDot={{ r: 6 }} />
+                                    <Line type="monotone" dataKey="profit_estimated" name="Profit" stroke="#10b981" strokeWidth={2} dot={false} activeDot={{ r: 6 }} />
+                                </LineChart>
+                            </ResponsiveContainer>
+                        </div>
+
+                        {/* Detailed Table */}
+                        <div style={{ background: '#fff', borderRadius: '16px', padding: '1.5rem', border: '1px solid #e1e1e1' }}>
+                            <h3 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '1.5rem' }}>Daily Financials</h3>
+                            <div style={{ overflowX: 'auto' }}>
+                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.95rem' }}>
+                                    <thead>
+                                        <tr style={{ borderBottom: '2px solid #f1f1f1', color: '#888', textAlign: 'right' }}>
+                                            <th style={{ textAlign: 'left', padding: '1rem 0.5rem' }}>Date</th>
+                                            <th style={{ padding: '1rem 0.5rem' }}>Revenue</th>
+                                            <th style={{ padding: '1rem 0.5rem' }}>Spend</th>
+                                            <th style={{ padding: '1rem 0.5rem' }}>Profit</th>
+                                            <th style={{ padding: '1rem 0.5rem' }}>Margin</th>
                                         </tr>
-                                    ))}
-                                    {data.series.length === 0 && (
-                                        <tr>
-                                            <td colSpan={5} style={{ padding: '3rem', textAlign: 'center', color: '#888' }}>
-                                                No data found for this period. Try connecting more data sources.
-                                            </td>
-                                        </tr>
-                                    )}
-                                </tbody>
-                            </table>
+                                    </thead>
+                                    <tbody>
+                                        {data.series.map((row: any) => (
+                                            <tr key={row.date} style={{ borderBottom: '1px solid #f9f9f9' }}>
+                                                <td style={{ textAlign: 'left', padding: '1rem 0.5rem', fontWeight: 500 }}>{row.date}</td>
+                                                <td style={{ textAlign: 'right', padding: '1rem 0.5rem' }}>{formatCurrency(row.revenue_gross)}</td>
+                                                <td style={{ textAlign: 'right', padding: '1rem 0.5rem', color: '#666' }}>{formatCurrency(row.spend)}</td>
+                                                <td style={{ textAlign: 'right', padding: '1rem 0.5rem', color: row.profit_estimated > 0 ? '#10b981' : '#ef4444', fontWeight: 600 }}>
+                                                    {formatCurrency(row.profit_estimated)}
+                                                </td>
+                                                <td style={{ textAlign: 'right', padding: '1rem 0.5rem' }}>{row.margin_percent.toFixed(1)}%</td>
+                                            </tr>
+                                        ))}
+                                        {data.series.length === 0 && (
+                                            <tr>
+                                                <td colSpan={5} style={{ padding: '3rem', textAlign: 'center', color: '#888' }}>
+                                                    No data found for this period. Try connecting more data sources.
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
 
-                    {/* Insights / Advice Column */}
+                    {/* Right Column: Insights */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                         <div style={{ background: '#fff', borderRadius: '16px', padding: '1.5rem', border: '1px solid #e1e1e1' }}>
                             <h3 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -166,20 +200,17 @@ export default function ReportRunnerView({ report, orgId }: ReportRunnerViewProp
 
                         <div style={{ background: '#fff', borderRadius: '16px', padding: '1.5rem', border: '1px solid #e1e1e1' }}>
                             <h3 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '1rem' }}>Channel Mix</h3>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                                {/* Simplified Mix - Mock Visual for now as we don't have Pie Charts lib loaded yet */}
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.9rem' }}>
-                                    <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><div style={{ width: 8, height: 8, borderRadius: '50%', background: '#4ade80' }}></div> Shopify (SEO/Direct)</span>
-                                    <strong>70%</strong>
-                                </div>
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.9rem' }}>
-                                    <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><div style={{ width: 8, height: 8, borderRadius: '50%', background: '#60a5fa' }}></div> Meta Ads</span>
-                                    <strong>20%</strong>
-                                </div>
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.9rem' }}>
-                                    <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><div style={{ width: 8, height: 8, borderRadius: '50%', background: '#fbbf24' }}></div> Google Ads</span>
-                                    <strong>10%</strong>
-                                </div>
+                            <div style={{ height: '200px' }}>
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={[{ name: 'Shopify', value: 70 }, { name: 'Meta', value: 20 }, { name: 'Google', value: 10 }]}>
+                                        <XAxis dataKey="name" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
+                                        <Tooltip cursor={{ fill: 'rgba(0,0,0,0.05)' }} />
+                                        <Bar dataKey="value" fill="#000" radius={[4, 4, 0, 0]} />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+                            <div style={{ marginTop: '1rem', fontSize: '0.8rem', color: '#888', textAlign: 'center' }}>
+                                * Channel attribution data coming soon.
                             </div>
                         </div>
                     </div>

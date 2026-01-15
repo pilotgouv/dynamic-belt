@@ -152,7 +152,7 @@ export default function ReportRunnerView({ report, orgId }: ReportRunnerViewProp
                                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.95rem' }}>
                                     <thead>
                                         <tr style={{ borderBottom: '2px solid #f1f1f1', color: '#888', textAlign: 'right' }}>
-                                            <th style={{ textAlign: 'left', padding: '1rem 0.5rem' }}>Date</th>
+                                            <th style={{ textAlign: 'left', padding: '1rem 0.5rem' }}>Date / Element</th>
                                             <th style={{ padding: '1rem 0.5rem' }}>Gross Rev</th>
                                             <th style={{ padding: '1rem 0.5rem' }}>Refunds</th>
                                             <th style={{ padding: '1rem 0.5rem' }}>Net Rev</th>

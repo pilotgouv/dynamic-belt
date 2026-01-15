@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
                     email,
                     name,
                     passwordHash,
-                    plan: 'free'
+                    // plan: 'free' -> Default in schema
                 }
             });
 
@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
             const org = await tx.organization.create({
                 data: {
                     name: orgName,
-                    plan: 'free',
+                    // plan: 'free' -> Default in schema
                     memberships: {
                         create: {
                             userId: user.id,

@@ -33,32 +33,39 @@ export class MetaAdsConnector implements DataSourceConnector {
             const startDate = fromDate.toISOString().split('T')[0];
             const endDate = toDate.toISOString().split('T')[0];
 
-            /*
-            Real API Concept (Graph API):
-            GET /v19.0/{ad_account_id}/insights?
-                level=account&
-                fields=spend,clicks,impressions,conversions,action_values,date_start,date_stop&
-                time_range={'since':'YYYY-MM-DD','until':'YYYY-MM-DD'}&
-                time_increment=1
-            */
+            // Real API Call
+            // Note: AdAccount ID usually needs 'act_' prefix if not present.
+            const accountId = this.adAccountId.startsWith('act_') ? this.adAccountId : `act_${this.adAccountId}`;
+            const fields = 'spend,clicks,impressions,actions,action_values,date_start,date_stop';
 
-            // Mock Response for V2.4 Prototype
-            const mockApiData = [
-                { date_start: '2026-01-14', spend: '150.50', clicks: '320', impressions: '15000', actions: [{ action_type: 'purchase', value: '12' }], action_values: [{ action_type: 'purchase', value: '850.00' }] },
-                { date_start: '2026-01-13', spend: '145.20', clicks: '290', impressions: '14500', actions: [{ action_type: 'purchase', value: '10' }], action_values: [{ action_type: 'purchase', value: '720.50' }] },
-            ];
+            const url = `https://graph.facebook.com/v19.0/${accountId}/insights?level=account&time_increment=1&time_range={'since':'${startDate}','until':'${endDate}'}&fields=${fields}&access_token=${this.accessToken}`;
 
-            const normalizedAds = mockApiData.map(row => {
-                const spend = parseFloat(row.spend);
-                const conversions = parseInt(row.actions?.find((a: any) => a.action_type === 'purchase')?.value || '0');
-                const conversionValue = parseFloat(row.action_values?.find((a: any) => a.action_type === 'purchase')?.value || '0');
+            const res = await fetch(url);
+
+            if (!res.ok) {
+                const errData = await res.json();
+                throw new Error(`Meta API Error: ${errData.error?.message || res.statusText}`);
+            }
+
+            const data = await res.json();
+            const apiData = data.data || [];
+
+            const normalizedAds = apiData.map((row: any) => {
+                const spend = parseFloat(row.spend || '0');
+
+                // Extract purchase value (customizable in future, mostly 'purchase' or 'offsite_conversion.fb_pixel_purchase')
+                const purchaseAction = row.actions?.find((a: any) => a.action_type === 'purchase' || a.action_type === 'offsite_conversion.fb_pixel_purchase');
+                const purchaseValueAction = row.action_values?.find((a: any) => a.action_type === 'purchase' || a.action_type === 'offsite_conversion.fb_pixel_purchase');
+
+                const conversions = parseInt(purchaseAction?.value || '0');
+                const conversionValue = parseFloat(purchaseValueAction?.value || '0');
 
                 return {
                     date: row.date_start,
                     channel: 'meta_ads',
                     spend: spend,
-                    impressions: parseInt(row.impressions),
-                    clicks: parseInt(row.clicks),
+                    impressions: parseInt(row.impressions || '0'),
+                    clicks: parseInt(row.clicks || '0'),
                     conversions: conversions,
                     conversionValue: conversionValue,
                     roas: spend > 0 ? conversionValue / spend : 0,
@@ -71,7 +78,9 @@ export class MetaAdsConnector implements DataSourceConnector {
             result.importedCount = normalizedAds.length;
 
         } catch (error: any) {
+            console.error("Meta Sync Error", error);
             result.errors.push(error.message);
+            result.success = false;
         }
 
         return result;

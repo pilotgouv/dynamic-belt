@@ -101,22 +101,16 @@ export class ShopifyConnector implements DataSourceConnector {
         // Basic Fetch Implementation
         const url = `https://${this.shopDomain}/admin/api/2024-01/orders.json?status=any&created_at_min=${from.toISOString()}&created_at_max=${to.toISOString()}&limit=250`;
 
-        try {
-            const res = await fetch(url, {
-                headers: {
-                    'X-Shopify-Access-Token': this.accessToken,
-                    'Content-Type': 'application/json'
-                }
-            });
+        const res = await fetch(url, {
+            headers: {
+                'X-Shopify-Access-Token': this.accessToken,
+                'Content-Type': 'application/json'
+            }
+        });
 
-            if (!res.ok) throw new Error(`Shopify API Error: ${res.statusText}`);
+        if (!res.ok) throw new Error(`Shopify API Error: ${res.statusText} (${res.status})`);
 
-            const data = await res.json();
-            return data.orders || [];
-        } catch (e) {
-            // Return empty or throw based on strategy. For now mock return if no network.
-            console.warn("Shopify Sync failed (Network/Auth), returning empty for prototype safety.");
-            return [];
-        }
+        const data = await res.json();
+        return data.orders || [];
     }
 }

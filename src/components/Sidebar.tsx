@@ -22,16 +22,10 @@ import { signOut } from 'next-auth/react';
 import Image from 'next/image';
 
 const MENU_ITEMS = [
-    { label: 'Vue Générale', icon: LayoutDashboard, path: '/' },
-    { label: 'Argent', icon: Wallet, path: '/finance' },
-    { label: 'Trafic & Acquisition', icon: Users, path: '/acquisition' },
-    { label: 'Publicité', icon: Megaphone, path: '/ads' },
-    { label: 'Produits & Offres', icon: Package, path: '/products' },
-    { label: 'Alertes & IA', icon: Bot, path: '/alerts' },
-    { label: 'Historique', icon: History, path: '/timeline' },
-    { label: 'Rapports', icon: FileText, path: '/reports' },
-    { label: 'Connexions', icon: LinkIcon, path: '/connections' },
-    { label: 'Paramètres', icon: Settings, path: '/settings' },
+    { label: 'Dashboard', icon: LayoutDashboard, path: '/reports' },
+    { label: 'Data Sources', icon: LinkIcon, path: '/connections' },
+    { label: 'Personal Space', icon: Users, path: '/account' },
+    // { label: 'Settings', icon: Settings, path: '/settings' }, // Keep commented or remove if page missing
 ];
 
 export default function Sidebar() {

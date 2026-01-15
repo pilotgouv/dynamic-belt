@@ -1,11 +1,9 @@
-
 "use client";
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import Image from 'next/image';
-import { Mail, Lock, User, ArrowRight, Loader2 } from 'lucide-react';
+import { Mail, Lock, User, ArrowRight, Loader2, AlertCircle } from 'lucide-react';
 
 export default function SignupPage() {
     const router = useRouter();
@@ -24,7 +22,7 @@ export default function SignupPage() {
         const name = formData.get('name');
 
         if (password !== confirm) {
-            setError("Les mots de passe ne correspondent pas");
+            setError("Passwords do not match");
             setLoading(false);
             return;
         }
@@ -38,7 +36,7 @@ export default function SignupPage() {
 
             if (!res.ok) {
                 const d = await res.json();
-                throw new Error(d.error || 'Erreur inconnue');
+                throw new Error(d.error || 'Unknown error');
             }
 
             // Success -> Redirect to Login
@@ -52,161 +50,103 @@ export default function SignupPage() {
     };
 
     return (
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', minHeight: '100vh', fontFamily: 'var(--font-sans)' }}>
+        <div className="min-h-screen bg-white flex flex-col items-center justify-center p-4">
 
-            {/* Left Column: Brand (Same as Login) */}
-            <div style={{
-                background: 'var(--text)',
-                color: 'white',
-                padding: '4rem',
-                display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
-                position: 'relative', overflow: 'hidden'
-            }}>
-                <div style={{
-                    position: 'absolute', top: '-20%', right: '-20%', width: '80%', height: '80%',
-                    background: 'radial-gradient(circle, rgba(42,124,176,0.4) 0%, rgba(14,14,29,0) 70%)',
-                    filter: 'blur(60px)', zIndex: 0
-                }} />
-
-                <div style={{ zIndex: 1 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4rem' }}>
-                        <Image src="/brand/logopilot.png" alt="PILOT" width={32} height={32} />
-                        <span style={{ fontSize: '1.2rem', fontWeight: 600, letterSpacing: '0.05em' }}>PILOT</span>
-                    </div>
+            {/* BRANDING */}
+            <div className="mb-8 flex flex-col items-center text-center">
+                <div className="w-16 h-16 bg-black rounded-2xl flex items-center justify-center mb-6 shadow-xl shadow-gray-200">
+                    <span className="text-white text-2xl font-bold">P</span>
                 </div>
-
-                <div style={{ zIndex: 1, maxWidth: '480px' }}>
-                    <h2 style={{ fontSize: '3rem', fontWeight: 700, lineHeight: 1.1, marginBottom: '1.5rem', background: 'linear-gradient(to right, #fff, #94a3b8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                        Start your journey.
-                    </h2>
-                    <p style={{ fontSize: '1.1rem', color: '#94a3b8', lineHeight: 1.6 }}>
-                        Create your Pilot account today and gain instant visibility into your business metrics.
-                    </p>
-                </div>
-
-                <div style={{ zIndex: 1, color: '#475569', fontSize: '0.9rem' }}>
-                    © 2024 Pilot Inc. All rights reserved.
-                </div>
+                <h1 className="text-2xl font-semibold tracking-tight text-gray-900 mb-2">Create your account</h1>
+                <p className="text-gray-500 text-sm">Join founders piloting with precision.</p>
             </div>
 
-            {/* Right Column: Signup Form */}
-            <div style={{
-                background: 'var(--bg)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                padding: '2rem'
-            }}>
-                <div style={{ width: '100%', maxWidth: '420px' }}>
-                    <div style={{ marginBottom: '2.5rem' }}>
-                        <h1 style={{ fontSize: '1.8rem', fontWeight: 700, color: 'var(--text)', marginBottom: '0.5rem' }}>Créer un compte</h1>
-                        <p style={{ color: 'var(--muted)' }}>Commencez à piloter votre business.</p>
-                    </div>
+            {/* CARD */}
+            <div className="w-full max-w-sm bg-white rounded-2xl border border-gray-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-8">
 
+                <form onSubmit={handleSubmit} className="space-y-4">
                     {error && (
-                        <div style={{
-                            padding: '1rem', marginBottom: '1.5rem', borderRadius: '8px',
-                            background: '#fee2e2', color: '#991b1b', fontSize: '0.9rem', fontWeight: 500,
-                            border: '1px solid #fecaca'
-                        }}>
-                            {error}
+                        <div className="p-3 bg-red-50 text-red-600 text-xs font-medium rounded-lg flex items-center gap-2">
+                            <AlertCircle size={14} /> {error}
                         </div>
                     )}
 
-                    <form onSubmit={handleSubmit}>
-                        <div style={{ marginBottom: '1.25rem' }}>
-                            <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, color: 'var(--text)', marginBottom: '0.5rem' }}>Nom complet</label>
-                            <div style={{ position: 'relative' }}>
-                                <User size={18} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }} />
-                                <input
-                                    name="name" type="text" required placeholder="John Doe"
-                                    style={{
-                                        width: '100%', padding: '0.8rem 1rem 0.8rem 2.8rem',
-                                        borderRadius: '8px', border: '1px solid var(--border)',
-                                        fontSize: '1rem', color: 'var(--text)', background: 'white',
-                                        outline: 'none', transition: 'box-shadow 0.2s, border-color 0.2s'
-                                    }}
-                                    onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.boxShadow = '0 0 0 4px rgba(42, 124, 176, 0.1)'; }}
-                                    onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; }}
-                                />
-                            </div>
+                    <div className="space-y-1">
+                        <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider ml-1">Full Name</label>
+                        <div className="relative group">
+                            <User size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-black transition-colors" />
+                            <input
+                                name="name"
+                                type="text"
+                                required
+                                placeholder="John Doe"
+                                className="w-full bg-gray-50 border border-gray-200 rounded-lg pl-9 pr-4 py-3 text-sm font-medium outline-none focus:border-black focus:ring-1 focus:ring-black transition-all"
+                            />
                         </div>
-
-                        <div style={{ marginBottom: '1.25rem' }}>
-                            <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, color: 'var(--text)', marginBottom: '0.5rem' }}>Email professionnel</label>
-                            <div style={{ position: 'relative' }}>
-                                <Mail size={18} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }} />
-                                <input
-                                    name="email" type="email" required placeholder="name@company.com"
-                                    style={{
-                                        width: '100%', padding: '0.8rem 1rem 0.8rem 2.8rem',
-                                        borderRadius: '8px', border: '1px solid var(--border)',
-                                        fontSize: '1rem', color: 'var(--text)', background: 'white',
-                                        outline: 'none', transition: 'box-shadow 0.2s, border-color 0.2s'
-                                    }}
-                                    onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.boxShadow = '0 0 0 4px rgba(42, 124, 176, 0.1)'; }}
-                                    onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; }}
-                                />
-                            </div>
-                        </div>
-
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '2rem' }}>
-                            <div>
-                                <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, color: 'var(--text)', marginBottom: '0.5rem' }}>Mot de passe</label>
-                                <div style={{ position: 'relative' }}>
-                                    <Lock size={18} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }} />
-                                    <input
-                                        name="password" type="password" required placeholder="••••••••" minLength={8}
-                                        style={{
-                                            width: '100%', padding: '0.8rem 1rem 0.8rem 2.8rem',
-                                            borderRadius: '8px', border: '1px solid var(--border)',
-                                            fontSize: '1rem', color: 'var(--text)', background: 'white',
-                                            outline: 'none', transition: 'box-shadow 0.2s, border-color 0.2s'
-                                        }}
-                                        onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.boxShadow = '0 0 0 4px rgba(42, 124, 176, 0.1)'; }}
-                                        onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; }}
-                                    />
-                                </div>
-                            </div>
-                            <div>
-                                <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, color: 'var(--text)', marginBottom: '0.5rem' }}>Confirmer</label>
-                                <div style={{ position: 'relative' }}>
-                                    <Lock size={18} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }} />
-                                    <input
-                                        name="confirm" type="password" required placeholder="••••••••" minLength={8}
-                                        style={{
-                                            width: '100%', padding: '0.8rem 1rem 0.8rem 2.8rem',
-                                            borderRadius: '8px', border: '1px solid var(--border)',
-                                            fontSize: '1rem', color: 'var(--text)', background: 'white',
-                                            outline: 'none', transition: 'box-shadow 0.2s, border-color 0.2s'
-                                        }}
-                                        onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.boxShadow = '0 0 0 4px rgba(42, 124, 176, 0.1)'; }}
-                                        onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; }}
-                                    />
-                                </div>
-                            </div>
-                        </div>
-
-                        <button type="submit" disabled={loading}
-                            style={{
-                                width: '100%', padding: '0.85rem',
-                                background: 'var(--text)', color: 'white',
-                                border: 'none', borderRadius: '8px',
-                                fontSize: '1rem', fontWeight: 600, cursor: 'pointer',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
-                                opacity: loading ? 0.7 : 1, transition: 'all 0.2s'
-                            }}
-                            onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-1px)'}
-                            onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
-                        >
-                            {loading && <Loader2 size={18} className="animate-spin" />}
-                            {loading ? 'Création...' : "S'inscrire"}
-                            {!loading && <ArrowRight size={18} />}
-                        </button>
-                    </form>
-
-                    <div style={{ marginTop: '2rem', textAlign: 'center', fontSize: '0.9rem', color: 'var(--muted)' }}>
-                        Déjà un compte ? <Link href="/login" style={{ color: 'var(--primary)', fontWeight: 600, textDecoration: 'none' }}>Se connecter</Link>
                     </div>
-                </div>
+
+                    <div className="space-y-1">
+                        <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider ml-1">Work Email</label>
+                        <div className="relative group">
+                            <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-black transition-colors" />
+                            <input
+                                name="email"
+                                type="email"
+                                required
+                                placeholder="name@company.com"
+                                className="w-full bg-gray-50 border border-gray-200 rounded-lg pl-9 pr-4 py-3 text-sm font-medium outline-none focus:border-black focus:ring-1 focus:ring-black transition-all"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="space-y-1">
+                        <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider ml-1">Password</label>
+                        <div className="relative group">
+                            <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-black transition-colors" />
+                            <input
+                                name="password"
+                                type="password"
+                                required
+                                placeholder="••••••••"
+                                minLength={8}
+                                className="w-full bg-gray-50 border border-gray-200 rounded-lg pl-9 pr-4 py-3 text-sm font-medium outline-none focus:border-black focus:ring-1 focus:ring-black transition-all"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="space-y-1">
+                        <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider ml-1">Confirm Password</label>
+                        <div className="relative group">
+                            <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-black transition-colors" />
+                            <input
+                                name="confirm"
+                                type="password"
+                                required
+                                placeholder="••••••••"
+                                className="w-full bg-gray-50 border border-gray-200 rounded-lg pl-9 pr-4 py-3 text-sm font-medium outline-none focus:border-black focus:ring-1 focus:ring-black transition-all"
+                            />
+                        </div>
+                    </div>
+
+                    <button
+                        type="submit"
+                        disabled={loading}
+                        className="w-full bg-black hover:bg-gray-800 text-white font-semibold py-3 rounded-lg text-sm shadow-md hover:shadow-lg transition-all flex justify-center items-center gap-2 mt-2"
+                    >
+                        {loading ? <Loader2 size={16} className="animate-spin" /> : (
+                            <>
+                                Create Account <ArrowRight size={16} />
+                            </>
+                        )}
+                    </button>
+                </form>
+            </div>
+
+            <div className="mt-8 text-center text-sm text-gray-500">
+                Already have an account?{' '}
+                <Link href="/login" className="text-black font-semibold hover:underline">
+                    Log in
+                </Link>
             </div>
         </div>
     );

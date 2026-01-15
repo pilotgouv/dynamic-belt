@@ -26,16 +26,25 @@ export default function ReportRunnerView({ report, orgId }: ReportRunnerViewProp
     const [data, setData] = useState<any>(null);
     const [error, setError] = useState<string | null>(null);
 
-    // Initial Config from the saved report
+    // Default to Current Month
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    // Initial Config from the saved report or default
     const config = typeof report.config === 'string' ? JSON.parse(report.config) : report.config;
-    const [range, setRange] = useState(config.range || {
-        start: new Date(new Date().setDate(new Date().getDate() - 30)).toISOString().split('T')[0],
-        end: new Date().toISOString().split('T')[0]
+
+    const [range, setRange] = useState(config.range && config.range.start ? config.range : {
+        start: startOfMonth.toISOString().split('T')[0],
+        end: now.toISOString().split('T')[0]
     });
 
     useEffect(() => {
         run();
-    }, []);
+    }, [range.start, range.end]); // Add deps to auto-run on change
+
+    const handleDateChange = (type: 'start' | 'end', val: string) => {
+        setRange((prev: any) => ({ ...prev, [type]: val }));
+    };
 
     const run = async () => {
         setLoading(true);
@@ -103,9 +112,11 @@ export default function ReportRunnerView({ report, orgId }: ReportRunnerViewProp
                         <h1 style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>{report.name}</h1>
                     </div>
                     <div style={{ display: 'flex', gap: '1rem' }}>
-                        <div style={{ background: '#fff', padding: '0.5rem 1rem', borderRadius: '8px', border: '1px solid #e1e1e1', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem', color: '#666' }}>
+                        <div style={{ background: '#fff', padding: '0.25rem 0.5rem', borderRadius: '8px', border: '1px solid #e1e1e1', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem', color: '#666' }}>
                             <Calendar size={16} />
-                            {range.start} — {range.end}
+                            <input type="date" value={range.start} onChange={(e) => handleDateChange('start', e.target.value)} style={{ border: 'none', outline: 'none', background: 'transparent', fontFamily: 'inherit', color: 'inherit', cursor: 'pointer' }} />
+                            <span style={{ color: '#ccc' }}>—</span>
+                            <input type="date" value={range.end} onChange={(e) => handleDateChange('end', e.target.value)} style={{ border: 'none', outline: 'none', background: 'transparent', fontFamily: 'inherit', color: 'inherit', cursor: 'pointer' }} />
                         </div>
                         <button style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#000', color: '#fff', border: 'none', padding: '0.5rem 1rem', borderRadius: '8px', fontWeight: 600, fontSize: '0.9rem' }}>
                             <Download size={16} /> Export PDF
@@ -125,23 +136,42 @@ export default function ReportRunnerView({ report, orgId }: ReportRunnerViewProp
                 <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1.5rem' }}>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                        {/* Trend Chart */}
+                        {/* Trend Chart or Bar Chart */}
                         <div style={{ background: '#fff', borderRadius: '16px', padding: '1.5rem', border: '1px solid #e1e1e1', height: '400px' }}>
-                            <h3 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '1rem' }}>Revenue vs Profit Trend</h3>
+                            <h3 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '1rem' }}>
+                                {data.series.length > 0 && data.series[0].product_name ? 'Top 10 Products (Revenue)' : 'Revenue vs Profit Trend'}
+                            </h3>
                             <ResponsiveContainer width="100%" height="100%">
-                                <LineChart data={data.series}>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
-                                    <XAxis dataKey="date" tick={{ fontSize: 12, fill: '#888' }} axisLine={false} tickLine={false} />
-                                    <YAxis tick={{ fontSize: 12, fill: '#888' }} axisLine={false} tickLine={false} tickFormatter={(val) => `${val / 1000}k`} />
-                                    <Tooltip
-                                        contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                                        formatter={(val: any) => typeof val === 'number' ? formatCurrency(val) : val}
-                                        labelStyle={{ color: '#666' }}
-                                    />
-                                    <Legend />
-                                    <Line type="monotone" dataKey="revenue_gross" name="Revenue" stroke="#000" strokeWidth={2} dot={false} activeDot={{ r: 6 }} />
-                                    <Line type="monotone" dataKey="profit_estimated" name="Profit" stroke="#10b981" strokeWidth={2} dot={false} activeDot={{ r: 6 }} />
-                                </LineChart>
+                                {data.series.length > 0 && data.series[0].product_name ? (
+                                    <BarChart data={data.series.slice(0, 10)}>
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
+                                        <XAxis dataKey="product_name" tick={{ fontSize: 10, fill: '#888' }} axisLine={false} tickLine={false} interval={0} />
+                                        <YAxis tick={{ fontSize: 12, fill: '#888' }} axisLine={false} tickLine={false} tickFormatter={(val) => `${val / 1000}k`} />
+                                        <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 12, fill: '#888' }} axisLine={false} tickLine={false} />
+                                        <Tooltip
+                                            contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                                            formatter={(val: any) => typeof val === 'number' ? formatCurrency(val) : val}
+                                            cursor={{ fill: 'rgba(0,0,0,0.05)' }}
+                                        />
+                                        <Legend />
+                                        <Bar dataKey="revenue_gross" name="Revenue" fill="#000" radius={[4, 4, 0, 0]} />
+                                        <Bar dataKey="units_sold" name="Units" fill="#007AFF" radius={[4, 4, 0, 0]} yAxisId="right" />
+                                    </BarChart>
+                                ) : (
+                                    <LineChart data={data.series}>
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
+                                        <XAxis dataKey="date" tick={{ fontSize: 12, fill: '#888' }} axisLine={false} tickLine={false} />
+                                        <YAxis tick={{ fontSize: 12, fill: '#888' }} axisLine={false} tickLine={false} tickFormatter={(val) => `${val / 1000}k`} />
+                                        <Tooltip
+                                            contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                                            formatter={(val: any) => typeof val === 'number' ? formatCurrency(val) : val}
+                                            labelStyle={{ color: '#666' }}
+                                        />
+                                        <Legend />
+                                        <Line type="monotone" dataKey="revenue_gross" name="Revenue" stroke="#000" strokeWidth={2} dot={false} activeDot={{ r: 6 }} />
+                                        <Line type="monotone" dataKey="profit_estimated" name="Profit" stroke="#10b981" strokeWidth={2} dot={false} activeDot={{ r: 6 }} />
+                                    </LineChart>
+                                )}
                             </ResponsiveContainer>
                         </div>
 

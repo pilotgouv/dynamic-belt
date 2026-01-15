@@ -75,14 +75,24 @@ export default function ReportRunnerView({ report, orgId }: ReportRunnerViewProp
     };
 
     // Date Presets Handler
-    const applyPreset = (days: number | 'month') => {
+    const applyPreset = (days: number | 'month' | string) => {
         const end = new Date();
         const start = new Date();
+
         if (days === 'month') {
-            start.setDate(1); // Start of month
-        } else {
+            start.setDate(1);
+        } else if (days === 'YTD') {
+            start.setMonth(0, 1);
+        } else if (days === '3M') {
+            start.setMonth(end.getMonth() - 3);
+        } else if (typeof days === 'number') {
             start.setDate(end.getDate() - days);
+        } else {
+            // 7D default fallback if parsing fails
+            if (days === '7D') start.setDate(end.getDate() - 7);
+            if (days === '30D') start.setDate(end.getDate() - 30);
         }
+
         setRange({
             start: start.toISOString().split('T')[0],
             end: end.toISOString().split('T')[0]
@@ -118,181 +128,206 @@ export default function ReportRunnerView({ report, orgId }: ReportRunnerViewProp
                         </p>
                     </div>
 
-                    {/* DATE CONTROLS */}
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '10px' }}>
-                        <div style={{ display: 'flex', gap: '8px', background: '#eef0f2', padding: '4px', borderRadius: '10px' }}>
-                            {['7D', '30D', '90D'].map(d => (
-                                <button key={d} onClick={() => applyPreset(parseInt(d))} style={{ padding: '6px 12px', fontSize: '0.8rem', fontWeight: 600, borderRadius: '6px', border: 'none', background: 'transparent', cursor: 'pointer', color: '#666' }}>
-                                    {d}
-                                </button>
-                            ))}
-                            <button onClick={() => applyPreset('month')} style={{ padding: '6px 12px', fontSize: '0.8rem', fontWeight: 600, borderRadius: '6px', border: 'none', background: '#fff', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', cursor: 'pointer', color: '#000' }}>
-                                This Month
+                    {/* DATE CONTROLS (Finary Style) */}
+                    <div style={{ display: 'flex', alignItems: 'center', background: '#fff', padding: '4px', borderRadius: '14px', border: `1px solid ${THEME.border}`, boxShadow: THEME.shadow }}>
+                        {['7D', '30D', '3M', 'YTD'].map(d => (
+                            <button
+                                key={d}
+                                onClick={() => applyPreset(d)}
+                                style={{
+                                    padding: '8px 16px',
+                                    fontSize: '0.85rem',
+                                    fontWeight: 600,
+                                    borderRadius: '10px',
+                                    border: 'none',
+                                    background: 'transparent',
+                                    cursor: 'pointer',
+                                    color: '#666',
+                                    transition: 'all 0.2s'
+                                }}
+                                onMouseEnter={e => e.currentTarget.style.color = '#000'}
+                                onMouseLeave={e => e.currentTarget.style.color = '#666'}
+                            >
+                                {d}
                             </button>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#fff', padding: '8px 12px', borderRadius: '12px', border: `1px solid ${THEME.border}`, boxShadow: THEME.shadow }}>
-                            <Calendar size={18} color={THEME.primary} />
-                            <input type="date" value={range.start} onChange={e => setRange({ ...range, start: e.target.value })} style={{ border: 'none', outline: 'none', fontWeight: 500, color: THEME.text }} />
-                            <span style={{ color: '#ccc' }}>—</span>
-                            <input type="date" value={range.end} onChange={e => setRange({ ...range, end: e.target.value })} style={{ border: 'none', outline: 'none', fontWeight: 500, color: THEME.text }} />
+                        ))}
+                        <div style={{ width: '1px', height: '20px', background: '#eee', margin: '0 8px' }}></div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '0 12px', cursor: 'pointer', position: 'relative' }}>
+                            <Calendar size={16} color={THEME.primary} />
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.85rem', fontWeight: 600 }}>
+                                <input type="date" value={range.start} onChange={e => setRange({ ...range, start: e.target.value })} style={{ border: 'none', outline: 'none', width: '90px', fontFamily: 'inherit', fontWeight: 'inherit', color: 'inherit', cursor: 'pointer' }} />
+                                <span style={{ color: '#ccc' }}>→</span>
+                                <input type="date" value={range.end} onChange={e => setRange({ ...range, end: e.target.value })} style={{ border: 'none', outline: 'none', width: '90px', fontFamily: 'inherit', fontWeight: 'inherit', color: 'inherit', cursor: 'pointer' }} />
+                            </div>
                         </div>
                     </div>
                 </header>
 
-                {loading || !data ? (
-                    <div style={{ height: '400px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <div className="animate-spin" style={{ width: '40px', height: '40px', border: '3px solid #eee', borderTop: '3px solid #000', borderRadius: '50%' }}></div>
-                    </div>
-                ) : (
-                    <>
-                        {/* KPI GRID */}
-                        {!isProductView ? (
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.5rem', marginBottom: '2rem' }}>
-                                <SummaryCard title="Chiffre d'Affaires" value={data.summary.total_revenue} type="currency" />
-                                <SummaryCard title="Dépenses Ads" value={data.summary.total_spend} type="currency" negate />
-                                <SummaryCard title="Profit Net (Réel)" value={data.summary.total_profit} type="currency" highlight />
-                                <SummaryCard title="Marge Globale" value={data.summary.global_margin} type="percent" />
-                            </div>
-                        ) : (
-                            // PRODUCT SPECIFIC KPI
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem', marginBottom: '2rem' }}>
-                                <ProductHeroCard title="Produit Hero" data={data.series[0]} icon={<Trophy color="#FFD700" />} />
-                                <div style={{ background: THEME.card, padding: '1.5rem', borderRadius: '16px', border: `1px solid ${THEME.border}`, boxShadow: THEME.shadow }}>
-                                    <h4 style={{ color: THEME.subtext, fontSize: '0.9rem', fontWeight: 600, textTransform: 'uppercase' }}>Volume Total</h4>
-                                    <div style={{ fontSize: '2rem', fontWeight: 800, marginTop: '0.5rem' }}>
-                                        {data.series.reduce((acc: number, r: any) => acc + (r.units_sold || 0), 0)} <span style={{ fontSize: '1rem', color: THEME.subtext, fontWeight: 500 }}>unités</span>
-                                    </div>
-                                </div>
-                                <div style={{ background: THEME.card, padding: '1.5rem', borderRadius: '16px', border: `1px solid ${THEME.border}`, boxShadow: THEME.shadow }}>
-                                    <h4 style={{ color: THEME.subtext, fontSize: '0.9rem', fontWeight: 600, textTransform: 'uppercase' }}>Produits Actifs</h4>
-                                    <div style={{ fontSize: '2rem', fontWeight: 800, marginTop: '0.5rem' }}>
-                                        {data.series.filter((r: any) => r.units_sold > 0).length} <span style={{ fontSize: '1rem', color: THEME.subtext, fontWeight: 500 }}>SKUs</span>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* MAIN SPLIT: CHART + TABLE */}
-                        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '2rem' }}>
-
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-                                {/* CHART */}
-                                <div style={{ background: THEME.card, borderRadius: '20px', padding: '1.5rem', border: `1px solid ${THEME.border}`, height: '420px', boxShadow: THEME.shadow }}>
-                                    <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.5rem' }}>
-                                        {isProductView ? 'Top 10 Produits (Revenus)' : 'Évolution des Profits'}
-                                    </h3>
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        {isProductView ? (
-                                            <BarChart data={data.series.slice(0, 10)}>
-                                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f1f1" />
-                                                <XAxis dataKey="product_name" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} interval={0} height={60} />
-                                                <YAxis tick={{ fontSize: 12, fill: THEME.subtext }} axisLine={false} tickLine={false} tickFormatter={(v) => `${v / 1000}k`} />
-                                                <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 12, fill: THEME.subtext }} axisLine={false} tickLine={false} />
-                                                <RechartsTooltip cursor={{ fill: 'rgba(0,0,0,0.02)' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 8px 24px rgba(0,0,0,0.12)' }} />
-                                                <Bar dataKey="revenue_gross" name="CA" fill="#1a1a1a" radius={[6, 6, 0, 0]} barSize={40} />
-                                                <Bar dataKey="units_sold" name="Unités" fill="#007AFF" radius={[6, 6, 0, 0]} yAxisId="right" barSize={20} />
-                                            </BarChart>
-                                        ) : (
-                                            <LineChart data={data.series}>
-                                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f1f1" />
-                                                <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: THEME.subtext, fontSize: 12 }} dy={10} />
-                                                <YAxis axisLine={false} tickLine={false} tick={{ fill: THEME.subtext, fontSize: 12 }} tickFormatter={(v) => `${v / 1000}k`} />
-                                                <RechartsTooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 8px 24px rgba(0,0,0,0.12)' }} />
-                                                <Legend iconType="circle" />
-                                                <Line type="monotone" dataKey="revenue_gross" name="Revenus" stroke="#1a1a1a" strokeWidth={3} dot={false} activeDot={{ r: 6 }} />
-                                                <Line type="monotone" dataKey="profit_estimated" name="Profit Net" stroke={THEME.success} strokeWidth={3} dot={false} activeDot={{ r: 6 }} />
-                                            </LineChart>
-                                        )}
-                                    </ResponsiveContainer>
-                                </div>
-
-                                {/* DATA TABLE (Luxe Style) */}
-                                <div style={{ background: THEME.card, borderRadius: '20px', padding: '0', border: `1px solid ${THEME.border}`, overflow: 'hidden', boxShadow: THEME.shadow }}>
-                                    <div style={{ padding: '1.5rem', borderBottom: `1px solid ${THEME.border}` }}>
-                                        <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>Données Détaillées</h3>
-                                    </div>
-                                    <div style={{ overflowX: 'auto' }}>
-                                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
-                                            <thead style={{ background: '#fcfcfc', borderBottom: `1px solid ${THEME.border}` }}>
-                                                <tr style={{ color: THEME.subtext, textAlign: 'right' }}>
-                                                    <th style={{ textAlign: 'left', padding: '1rem 1.5rem', fontWeight: 600 }}>{isProductView ? 'Produit / SKU' : 'Date'}</th>
-                                                    <th style={{ padding: '1rem', fontWeight: 600 }}>CA Brut</th>
-                                                    {!isProductView && <th style={{ padding: '1rem', fontWeight: 600 }}>Ads</th>}
-                                                    <th style={{ padding: '1rem', fontWeight: 600 }}>Profit</th>
-                                                    <th style={{ padding: '1rem', fontWeight: 600 }}>Marge %</th>
-                                                    {isProductView && <th style={{ padding: '1rem', fontWeight: 600 }}>Unités</th>}
-                                                    {isProductView && <th style={{ padding: '1rem', fontWeight: 600 }}>Statut</th>}
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {data.series.slice(0, 50).map((row: any, i: number) => (
-                                                    <tr key={i} style={{ borderBottom: '1px solid #f5f5f5', transition: 'background 0.2s' }}>
-                                                        <td style={{ textAlign: 'left', padding: '1rem 1.5rem', fontWeight: 500, color: THEME.text }}>
-                                                            {isProductView ? (
-                                                                <div>
-                                                                    <div style={{ fontWeight: 600 }}>{row.product_name}</div>
-                                                                    <div style={{ fontSize: '0.8rem', color: THEME.subtext }}>SKU: {row.sku || 'N/A'}</div>
-                                                                </div>
-                                                            ) : row.date}
-                                                        </td>
-                                                        <td style={{ textAlign: 'right', padding: '1rem' }}>{formatCurrency(row.revenue_gross)}</td>
-                                                        {!isProductView && <td style={{ textAlign: 'right', padding: '1rem', color: THEME.subtext }}>{formatCurrency(row.spend)}</td>}
-                                                        <td style={{ textAlign: 'right', padding: '1rem', color: row.profit_estimated > 0 ? THEME.success : THEME.danger, fontWeight: 700 }}>
-                                                            {formatCurrency(row.profit_estimated)}
-                                                        </td>
-                                                        <td style={{ textAlign: 'right', padding: '1rem' }}>
-                                                            <span style={{ padding: '4px 8px', borderRadius: '6px', background: row.margin_percent > 20 ? '#ecfdf5' : '#fef2f2', color: row.margin_percent > 20 ? THEME.success : THEME.danger, fontWeight: 600 }}>
-                                                                {row.margin_percent.toFixed(1)}%
-                                                            </span>
-                                                        </td>
-                                                        {isProductView && (
-                                                            <td style={{ textAlign: 'right', padding: '1rem', fontWeight: 600 }}>{row.units_sold}</td>
-                                                        )}
-                                                        {isProductView && (
-                                                            <td style={{ textAlign: 'right', padding: '1rem' }}>
-                                                                <ProductStatusBadge status={row.status} />
-                                                            </td>
-                                                        )}
-                                                    </tr>
-                                                ))}
-                                                {data.series.length === 0 && (
-                                                    <tr>
-                                                        <td colSpan={7} style={{ padding: '4rem', textAlign: 'center', color: THEME.subtext }}>
-                                                            Aucune donnée trouvée pour cette période.
-                                                        </td>
-                                                    </tr>
-                                                )}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* RIGHT SIDEBAR: INSIGHTS */}
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                                <div style={{ background: 'linear-gradient(135deg, #007AFF 0%, #0055ff 100%)', borderRadius: '20px', padding: '1.5rem', color: '#fff', boxShadow: '0 8px 30px rgba(0, 122, 255, 0.25)' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '1rem' }}>
-                                        <AlertCircle size={20} color="#fff" />
-                                        <h3 style={{ fontSize: '1.1rem', fontWeight: 600 }}>Coach IA</h3>
-                                    </div>
-                                    <p style={{ fontSize: '0.95rem', opacity: 0.9, lineHeight: 1.6 }}>
-                                        {isProductView
-                                            ? "Votre 'Produit Hero' génère 40% de vos profits. Considérez augmenter le budget Ads sur ce produit spécifique pour maximiser l'échelle."
-                                            : "Votre marge nette est stable cette semaine. Attention cependant au coût d'acquisition sur Meta qui a augmenté de 12% hier."}
-                                    </p>
-                                </div>
-                                <div style={{ background: THEME.card, borderRadius: '20px', padding: '1.5rem', border: `1px solid ${THEME.border}` }}>
-                                    <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1rem', color: THEME.subtext }}>Répartition par Source</h3>
-                                    {/* Placeholder for Donut Chart */}
-                                    <div style={{ height: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: THEME.subtext, fontSize: '0.9rem', background: '#f9f9f9', borderRadius: '12px' }}>
-                                        Analyse en cours...
-                                    </div>
-                                </div>
-                            </div>
-
+                <div style={{ position: 'relative', minHeight: '400px' }}>
+                    {/* LOADING OVERLAY */}
+                    {loading && (
+                        <div style={{
+                            position: 'absolute', inset: 0, zIndex: 10,
+                            background: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(2px)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '24px'
+                        }}>
+                            <div className="animate-spin" style={{ width: '40px', height: '40px', border: '3px solid #eee', borderTop: '3px solid #000', borderRadius: '50%' }}></div>
                         </div>
-                    </>
-                )}
+                    )}
+
+                    {!data ? (
+                        <div style={{ opacity: 0 }}></div>
+                    ) : (
+                        <>
+                            {/* KPI GRID */}
+                            {!isProductView ? (
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.5rem', marginBottom: '2rem' }}>
+                                    <SummaryCard title="Chiffre d'Affaires" value={data.summary.total_revenue} type="currency" />
+                                    <SummaryCard title="Dépenses Ads" value={data.summary.total_spend} type="currency" negate />
+                                    <SummaryCard title="Profit Net (Réel)" value={data.summary.total_profit} type="currency" highlight />
+                                    <SummaryCard title="Marge Globale" value={data.summary.global_margin} type="percent" />
+                                </div>
+                            ) : (
+                                // PRODUCT SPECIFIC KPI
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem', marginBottom: '2rem' }}>
+                                    <ProductHeroCard title="Produit Hero" data={data.series[0]} icon={<Trophy color="#FFD700" />} />
+                                    <div style={{ background: THEME.card, padding: '1.5rem', borderRadius: '16px', border: `1px solid ${THEME.border}`, boxShadow: THEME.shadow }}>
+                                        <h4 style={{ color: THEME.subtext, fontSize: '0.9rem', fontWeight: 600, textTransform: 'uppercase' }}>Volume Total</h4>
+                                        <div style={{ fontSize: '2rem', fontWeight: 800, marginTop: '0.5rem' }}>
+                                            {data.series.reduce((acc: number, r: any) => acc + (r.units_sold || 0), 0)} <span style={{ fontSize: '1rem', color: THEME.subtext, fontWeight: 500 }}>unités</span>
+                                        </div>
+                                    </div>
+                                    <div style={{ background: THEME.card, padding: '1.5rem', borderRadius: '16px', border: `1px solid ${THEME.border}`, boxShadow: THEME.shadow }}>
+                                        <h4 style={{ color: THEME.subtext, fontSize: '0.9rem', fontWeight: 600, textTransform: 'uppercase' }}>Produits Actifs</h4>
+                                        <div style={{ fontSize: '2rem', fontWeight: 800, marginTop: '0.5rem' }}>
+                                            {data.series.filter((r: any) => r.units_sold > 0).length} <span style={{ fontSize: '1rem', color: THEME.subtext, fontWeight: 500 }}>SKUs</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* MAIN SPLIT: CHART + TABLE */}
+                            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '2rem' }}>
+
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                                    {/* CHART */}
+                                    <div style={{ background: THEME.card, borderRadius: '20px', padding: '1.5rem', border: `1px solid ${THEME.border}`, height: '420px', boxShadow: THEME.shadow }}>
+                                        <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.5rem' }}>
+                                            {isProductView ? 'Top 10 Produits (Revenus)' : 'Évolution des Profits'}
+                                        </h3>
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            {isProductView ? (
+                                                <BarChart data={data.series.slice(0, 10)}>
+                                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f1f1" />
+                                                    <XAxis dataKey="product_name" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} interval={0} height={60} />
+                                                    <YAxis tick={{ fontSize: 12, fill: THEME.subtext }} axisLine={false} tickLine={false} tickFormatter={(v) => `${v / 1000}k`} />
+                                                    <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 12, fill: THEME.subtext }} axisLine={false} tickLine={false} />
+                                                    <RechartsTooltip cursor={{ fill: 'rgba(0,0,0,0.02)' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 8px 24px rgba(0,0,0,0.12)' }} />
+                                                    <Bar dataKey="revenue_gross" name="CA" fill="#1a1a1a" radius={[6, 6, 0, 0]} barSize={40} />
+                                                    <Bar dataKey="units_sold" name="Unités" fill="#007AFF" radius={[6, 6, 0, 0]} yAxisId="right" barSize={20} />
+                                                </BarChart>
+                                            ) : (
+                                                <LineChart data={data.series}>
+                                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f1f1" />
+                                                    <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: THEME.subtext, fontSize: 12 }} dy={10} />
+                                                    <YAxis axisLine={false} tickLine={false} tick={{ fill: THEME.subtext, fontSize: 12 }} tickFormatter={(v) => `${v / 1000}k`} />
+                                                    <RechartsTooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 8px 24px rgba(0,0,0,0.12)' }} />
+                                                    <Legend iconType="circle" />
+                                                    <Line type="monotone" dataKey="revenue_gross" name="Revenus" stroke="#1a1a1a" strokeWidth={3} dot={false} activeDot={{ r: 6 }} />
+                                                    <Line type="monotone" dataKey="profit_estimated" name="Profit Net" stroke={THEME.success} strokeWidth={3} dot={false} activeDot={{ r: 6 }} />
+                                                </LineChart>
+                                            )}
+                                        </ResponsiveContainer>
+                                    </div>
+
+                                    {/* DATA TABLE (Luxe Style) */}
+                                    <div style={{ background: THEME.card, borderRadius: '20px', padding: '0', border: `1px solid ${THEME.border}`, overflow: 'hidden', boxShadow: THEME.shadow }}>
+                                        <div style={{ padding: '1.5rem', borderBottom: `1px solid ${THEME.border}` }}>
+                                            <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>Données Détaillées</h3>
+                                        </div>
+                                        <div style={{ overflowX: 'auto' }}>
+                                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+                                                <thead style={{ background: '#fcfcfc', borderBottom: `1px solid ${THEME.border}` }}>
+                                                    <tr style={{ color: THEME.subtext, textAlign: 'right' }}>
+                                                        <th style={{ textAlign: 'left', padding: '1rem 1.5rem', fontWeight: 600 }}>{isProductView ? 'Produit / SKU' : 'Date'}</th>
+                                                        <th style={{ padding: '1rem', fontWeight: 600 }}>CA Brut</th>
+                                                        {!isProductView && <th style={{ padding: '1rem', fontWeight: 600 }}>Ads</th>}
+                                                        <th style={{ padding: '1rem', fontWeight: 600 }}>Profit</th>
+                                                        <th style={{ padding: '1rem', fontWeight: 600 }}>Marge %</th>
+                                                        {isProductView && <th style={{ padding: '1rem', fontWeight: 600 }}>Unités</th>}
+                                                        {isProductView && <th style={{ padding: '1rem', fontWeight: 600 }}>Statut</th>}
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {data.series.slice(0, 50).map((row: any, i: number) => (
+                                                        <tr key={i} style={{ borderBottom: '1px solid #f5f5f5', transition: 'background 0.2s' }}>
+                                                            <td style={{ textAlign: 'left', padding: '1rem 1.5rem', fontWeight: 500, color: THEME.text }}>
+                                                                {isProductView ? (
+                                                                    <div>
+                                                                        <div style={{ fontWeight: 600 }}>{row.product_name}</div>
+                                                                        <div style={{ fontSize: '0.8rem', color: THEME.subtext }}>SKU: {row.sku || 'N/A'}</div>
+                                                                    </div>
+                                                                ) : row.date}
+                                                            </td>
+                                                            <td style={{ textAlign: 'right', padding: '1rem' }}>{formatCurrency(row.revenue_gross)}</td>
+                                                            {!isProductView && <td style={{ textAlign: 'right', padding: '1rem', color: THEME.subtext }}>{formatCurrency(row.spend)}</td>}
+                                                            <td style={{ textAlign: 'right', padding: '1rem', color: row.profit_estimated > 0 ? THEME.success : THEME.danger, fontWeight: 700 }}>
+                                                                {formatCurrency(row.profit_estimated)}
+                                                            </td>
+                                                            <td style={{ textAlign: 'right', padding: '1rem' }}>
+                                                                <span style={{ padding: '4px 8px', borderRadius: '6px', background: row.margin_percent > 20 ? '#ecfdf5' : '#fef2f2', color: row.margin_percent > 20 ? THEME.success : THEME.danger, fontWeight: 600 }}>
+                                                                    {row.margin_percent.toFixed(1)}%
+                                                                </span>
+                                                            </td>
+                                                            {isProductView && (
+                                                                <td style={{ textAlign: 'right', padding: '1rem', fontWeight: 600 }}>{row.units_sold}</td>
+                                                            )}
+                                                            {isProductView && (
+                                                                <td style={{ textAlign: 'right', padding: '1rem' }}>
+                                                                    <ProductStatusBadge status={row.status} />
+                                                                </td>
+                                                            )}
+                                                        </tr>
+                                                    ))}
+                                                    {data.series.length === 0 && (
+                                                        <tr>
+                                                            <td colSpan={7} style={{ padding: '4rem', textAlign: 'center', color: THEME.subtext }}>
+                                                                Aucune donnée trouvée pour cette période.
+                                                            </td>
+                                                        </tr>
+                                                    )}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* RIGHT SIDEBAR: INSIGHTS */}
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                                    <div style={{ background: 'linear-gradient(135deg, #007AFF 0%, #0055ff 100%)', borderRadius: '20px', padding: '1.5rem', color: '#fff', boxShadow: '0 8px 30px rgba(0, 122, 255, 0.25)' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '1rem' }}>
+                                            <AlertCircle size={20} color="#fff" />
+                                            <h3 style={{ fontSize: '1.1rem', fontWeight: 600 }}>Coach IA</h3>
+                                        </div>
+                                        <p style={{ fontSize: '0.95rem', opacity: 0.9, lineHeight: 1.6 }}>
+                                            {isProductView
+                                                ? "Votre 'Produit Hero' génère 40% de vos profits. Considérez augmenter le budget Ads sur ce produit spécifique pour maximiser l'échelle."
+                                                : "Votre marge nette est stable cette semaine. Attention cependant au coût d'acquisition sur Meta qui a augmenté de 12% hier."}
+                                        </p>
+                                    </div>
+                                    <div style={{ background: THEME.card, borderRadius: '20px', padding: '1.5rem', border: `1px solid ${THEME.border}` }}>
+                                        <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1rem', color: THEME.subtext }}>Répartition par Source</h3>
+                                        {/* Placeholder for Donut Chart */}
+                                        <div style={{ height: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: THEME.subtext, fontSize: '0.9rem', background: '#f9f9f9', borderRadius: '12px' }}>
+                                            Analyse en cours...
+                                        </div>
+                                    </div>
+                                </div>
+
+                            </div>
+                        </>
+                    )}
+                </div> {/* End content wrapper */}
             </div>
         </div>
     );
@@ -351,5 +386,6 @@ function ProductStatusBadge({ status }: { status: string }) {
 }
 
 function formatCurrency(val: number) {
+    if (val === undefined || val === null) return '0 €';
     return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(val);
 }

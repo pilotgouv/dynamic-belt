@@ -1,30 +1,23 @@
-
 "use client";
 
-import React, { useState, Suspense } from 'react';
+import { useState } from 'react';
 import { signIn } from 'next-auth/react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { ArrowRight, Lock, Mail, Loader2, AlertCircle, Fingerprint } from 'lucide-react';
 import Image from 'next/image';
-import { Mail, Lock, ArrowRight, Loader2 } from 'lucide-react';
 
-function LoginForm() {
+export default function LoginPage() {
     const router = useRouter();
-    const searchParams = useSearchParams();
-    const [loading, setLoading] = useState(false);
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
     const [error, setError] = useState('');
+    const [loading, setLoading] = useState(false);
 
-    // Show success message if coming from signup
-    const created = searchParams.get('signup') === 'success';
-
-    const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
         setError('');
-
-        const formData = new FormData(e.currentTarget);
-        const email = formData.get('email');
-        const password = formData.get('password');
 
         try {
             const res = await signIn('credentials', {
@@ -34,161 +27,137 @@ function LoginForm() {
             });
 
             if (res?.error) {
-                setError("Identifiants incorrects.");
-                setLoading(false);
+                setError('Identifiants incorrects. Veuillez réessayer.');
             } else {
-                router.push('/');
+                router.push('/reports');
                 router.refresh();
             }
         } catch (err) {
-            setError("Erreur serveur.");
+            setError('Une erreur est survenue.');
+        } finally {
             setLoading(false);
         }
     };
 
     return (
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', minHeight: '100vh', fontFamily: 'var(--font-sans)' }}>
+        <div className="flex min-h-screen bg-black font-sans text-white overflow-hidden">
 
-            {/* Left Column: Brand / Vision */}
-            <div style={{
-                background: 'var(--text)',
-                color: 'white',
-                padding: '4rem',
-                display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
-                position: 'relative', overflow: 'hidden'
-            }}>
-                {/* Abstract Background Element */}
-                <div style={{
-                    position: 'absolute', top: '-20%', right: '-20%', width: '80%', height: '80%',
-                    background: 'radial-gradient(circle, rgba(42,124,176,0.4) 0%, rgba(14,14,29,0) 70%)',
-                    filter: 'blur(60px)', zIndex: 0
-                }} />
+            {/* LEFT: BRAND & ART */}
+            <div className="flex-1 hidden lg:flex flex-col justify-between p-12 relative bg-[#0a0a0a]">
+                <div className="absolute inset-0 bg-[url('/grid-pattern.svg')] opacity-10"></div>
+                <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-blue-900/20 to-transparent"></div>
 
-                <div style={{ zIndex: 1 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4rem' }}>
-                        <Image src="/brand/logopilot.png" alt="PILOT" width={32} height={32} />
-                        <span style={{ fontSize: '1.2rem', fontWeight: 600, letterSpacing: '0.05em' }}>PILOT</span>
-                    </div>
+                <div className="relative z-10">
+                    <Link href="/" className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center">
+                            <span className="text-black font-bold text-xl">P</span>
+                        </div>
+                        <span className="text-2xl font-bold tracking-tight">PILOT</span>
+                    </Link>
                 </div>
 
-                <div style={{ zIndex: 1, maxWidth: '480px' }}>
-                    <h2 style={{ fontSize: '3rem', fontWeight: 700, lineHeight: 1.1, marginBottom: '1.5rem', background: 'linear-gradient(to right, #fff, #94a3b8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                        Turn data into direction.
-                    </h2>
-                    <p style={{ fontSize: '1.1rem', color: '#94a3b8', lineHeight: 1.6 }}>
-                        Join the executives using Pilot to visualize performance, track expenses, and forecast growth with boardroom precision.
+                <div className="relative z-10 max-w-lg">
+                    <h2 className="text-5xl font-bold leading-tight mb-6 tracking-tight">La vérité économique <br /><span className="text-blue-500">sans filtre.</span></h2>
+                    <p className="text-lg text-gray-400 leading-relaxed">
+                        Rejoignez les entrepreneurs qui pilotent leur business avec précision chirurgicale. Fini les vanity metrics, place au Profit Réel.
                     </p>
                 </div>
 
-                <div style={{ zIndex: 1, color: '#475569', fontSize: '0.9rem' }}>
-                    © 2024 Pilot Inc. All rights reserved.
+                <div className="relative z-10 flex items-center gap-4 text-sm text-gray-500">
+                    <span>© 2026 PILOT Data</span>
+                    <span>•</span>
+                    <span>Sécurité Bancaire</span>
+                    <span>•</span>
+                    <span>Chiffré de bout en bout</span>
                 </div>
             </div>
 
-            {/* Right Column: Auth Form */}
-            <div style={{
-                background: 'var(--bg)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                padding: '2rem'
-            }}>
-                <div style={{ width: '100%', maxWidth: '420px' }}>
-                    <div style={{ marginBottom: '2.5rem' }}>
-                        <h1 style={{ fontSize: '1.8rem', fontWeight: 700, color: 'var(--text)', marginBottom: '0.5rem' }}>Connexion</h1>
-                        <p style={{ color: 'var(--muted)' }}>Heureux de vous revoir.</p>
+            {/* RIGHT: FORM */}
+            <div className="flex-1 flex items-center justify-center p-8 bg-white text-black lg:max-w-xl w-full">
+                <div className="w-full max-w-sm">
+
+                    <div className="mb-10">
+                        <h1 className="text-3xl font-bold mb-2 tracking-tight">Connexion</h1>
+                        <p className="text-gray-500">Accédez à votre Boardroom.</p>
                     </div>
 
-                    {created && (
-                        <div style={{
-                            padding: '1rem', marginBottom: '1.5rem', borderRadius: '8px',
-                            background: '#dcfce7', color: '#166534', fontSize: '0.9rem', fontWeight: 500,
-                            border: '1px solid #bbf7d0'
-                        }}>
-                            Compte créé. Connectez-vous maintenant.
-                        </div>
-                    )}
+                    <form onSubmit={handleSubmit} className="space-y-5">
 
-                    {error && (
-                        <div style={{
-                            padding: '1rem', marginBottom: '1.5rem', borderRadius: '8px',
-                            background: '#fee2e2', color: '#991b1b', fontSize: '0.9rem', fontWeight: 500,
-                            border: '1px solid #fecaca'
-                        }}>
-                            {error}
-                        </div>
-                    )}
+                        {error && (
+                            <div className="p-4 bg-red-50 border border-red-100 rounded-xl flex items-center gap-3 text-red-600 text-sm">
+                                <AlertCircle size={18} />
+                                {error}
+                            </div>
+                        )}
 
-                    <form onSubmit={handleSubmit}>
-                        <div style={{ marginBottom: '1.25rem' }}>
-                            <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, color: 'var(--text)', marginBottom: '0.5rem' }}>Email professionnel</label>
-                            <div style={{ position: 'relative' }}>
-                                <Mail size={18} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }} />
+                        <div className="space-y-1.5">
+                            <label className="text-sm font-semibold text-gray-700 ml-1">Email</label>
+                            <div className="relative group">
+                                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-black transition-colors">
+                                    <Mail size={18} />
+                                </div>
                                 <input
-                                    name="email" type="email" required placeholder="name@company.com"
-                                    style={{
-                                        width: '100%', padding: '0.8rem 1rem 0.8rem 2.8rem',
-                                        borderRadius: '8px', border: '1px solid var(--border)',
-                                        fontSize: '1rem', color: 'var(--text)', background: 'white',
-                                        outline: 'none', transition: 'box-shadow 0.2s, border-color 0.2s'
-                                    }}
-                                    onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.boxShadow = '0 0 0 4px rgba(42, 124, 176, 0.1)'; }}
-                                    onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; }}
+                                    type="email"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    required
+                                    className="w-full pl-11 pr-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-black focus:ring-1 focus:ring-black transition-all font-medium text-gray-900 placeholder:text-gray-400"
+                                    placeholder="name@company.com"
                                 />
                             </div>
                         </div>
 
-                        <div style={{ marginBottom: '2rem' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                                <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, color: 'var(--text)' }}>Mot de passe</label>
-                                <a href="#" style={{ fontSize: '0.85rem', color: 'var(--primary)', fontWeight: 500, textDecoration: 'none' }}>Oublié ?</a>
+                        <div className="space-y-1.5">
+                            <div className="flex justify-between items-center ml-1">
+                                <label className="text-sm font-semibold text-gray-700">Mot de passe</label>
+                                <Link href="/forgot-password" className="text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors">
+                                    Mot de passe oublié ?
+                                </Link>
                             </div>
-
-                            <div style={{ position: 'relative' }}>
-                                <Lock size={18} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }} />
+                            <div className="relative group">
+                                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-black transition-colors">
+                                    <Lock size={18} />
+                                </div>
                                 <input
-                                    name="password" type="password" required placeholder="••••••••"
-                                    style={{
-                                        width: '100%', padding: '0.8rem 1rem 0.8rem 2.8rem',
-                                        borderRadius: '8px', border: '1px solid var(--border)',
-                                        fontSize: '1rem', color: 'var(--text)', background: 'white',
-                                        outline: 'none', transition: 'box-shadow 0.2s, border-color 0.2s'
-                                    }}
-                                    onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.boxShadow = '0 0 0 4px rgba(42, 124, 176, 0.1)'; }}
-                                    onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; }}
+                                    type="password"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    required
+                                    className="w-full pl-11 pr-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-black focus:ring-1 focus:ring-black transition-all font-medium text-gray-900 placeholder:text-gray-400"
+                                    placeholder="••••••••"
                                 />
                             </div>
                         </div>
 
-                        <button type="submit" disabled={loading}
-                            style={{
-                                width: '100%', padding: '0.85rem',
-                                background: 'var(--text)', color: 'white',
-                                border: 'none', borderRadius: '8px',
-                                fontSize: '1rem', fontWeight: 600, cursor: 'pointer',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
-                                opacity: loading ? 0.7 : 1, transition: 'all 0.2s'
-                            }}
-                            onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-1px)'}
-                            onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            className="w-full py-4 bg-black hover:bg-gray-900 text-white rounded-xl font-bold text-lg shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed mt-4"
                         >
-                            {loading && <Loader2 size={18} className="animate-spin" />}
-                            {loading ? 'Connexion...' : 'Se connecter'}
-                            {!loading && <ArrowRight size={18} />}
+                            {loading ? <Loader2 className="animate-spin" size={20} /> : (
+                                <>
+                                    Se connecter <ArrowRight size={20} />
+                                </>
+                            )}
                         </button>
                     </form>
 
-                    <div style={{ marginTop: '2rem', textAlign: 'center', fontSize: '0.9rem', color: 'var(--muted)' }}>
-                        Pas encore de compte ? <Link href="/signup" style={{ color: 'var(--primary)', fontWeight: 600, textDecoration: 'none' }}>Créer un compte</Link>
+                    <div className="mt-8 text-center">
+                        <p className="text-gray-500 text-sm">
+                            Pas encore de compte ?{' '}
+                            <Link href="/signup" className="text-black font-bold hover:underline">
+                                Créer un compte
+                            </Link>
+                        </p>
                     </div>
+
+                    {/* DEBUG LINK - To be removed in Prod */}
+                    <div className="mt-12 text-center opacity-20 hover:opacity-100 transition-opacity">
+                        <a href="/api/auth/debug-reset" target="_blank" className="text-xs text-red-500">Reset Password (Debug)</a>
+                    </div>
+
                 </div>
             </div>
         </div>
-    );
-}
-
-export default function LoginPage() {
-    return (
-        <Suspense fallback={<div>Loading...</div>}>
-            <LoginForm />
-        </Suspense>
     );
 }

@@ -109,10 +109,10 @@ export default function ProductsView({ orgId }: ProductsViewProps) {
 
             {/* ROW B: KPI Cards */}
             <div className="grid grid-cols-4 gap-6">
-                <KPICard title="Total Units Sold" value={summary.units_sold || 0} loading={loading} />
-                <KPICard title="Product Revenue" value={summary.revenue ? formatCurrency(summary.revenue) : '-'} loading={loading} />
-                <KPICard title="Product Profit" value={summary.profit ? formatCurrency(summary.profit) : '-'} loading={loading} />
-                <KPICard title="Avg Margin" value={summary.margin_percent ? summary.margin_percent.toFixed(1) : '-'} suffix="%" loading={loading} />
+                <KPICard title="Total Units Sold" value={summary.total_units_sold || 0} loading={loading} />
+                <KPICard title="Product Revenue" value={summary.total_revenue ? formatCurrency(summary.total_revenue) : '-'} loading={loading} />
+                <KPICard title="Product Profit" value={summary.total_profit ? formatCurrency(summary.total_profit) : '-'} loading={loading} />
+                <KPICard title="Avg Margin" value={summary.global_margin ? summary.global_margin.toFixed(1) : '-'} suffix="%" loading={loading} />
             </div>
 
             {/* ROW C: Top SKUs Table */}
@@ -146,7 +146,7 @@ export default function ProductsView({ orgId }: ProductsViewProps) {
                                 <td className="px-6 py-4 text-right text-green-600 font-medium">{formatCurrency(p.profit_estimated)}</td>
                                 <td className="px-6 py-4 text-right">
                                     <span className="bg-gray-100 px-2 py-1 rounded text-xs font-bold text-gray-600">
-                                        {((p.revenue / (summary.revenue || 1)) * 100).toFixed(0)}%
+                                        {((p.revenue / (summary.total_revenue || 1)) * 100).toFixed(0)}%
                                     </span>
                                 </td>
                             </tr>

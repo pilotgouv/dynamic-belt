@@ -279,6 +279,14 @@ export class ReportService {
         const globalMargin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
         const globalRoas = totalSpend > 0 ? totalRevenue / totalSpend : 0;
 
+        // Calculate Total Units Sold (Global)
+        const totalUnitsAgg = await prisma.productDaily.aggregate({
+            where: { organizationId, date: { gte: range.start, lte: range.end } },
+            _sum: { unitsSold: true }
+        });
+        const totalUnits = totalUnitsAgg._sum.unitsSold || 0;
+
+
         // Calculate PILOT Score
         const pilotHealth = BusinessEngine.calculateHealthScore({
             marginPercent: globalMargin,
@@ -299,7 +307,8 @@ export class ReportService {
                 roas: globalRoas,
                 pilot_score: pilotHealth.score,
                 pilot_status: pilotHealth.status,
-                pilot_components: pilotHealth.components
+                pilot_components: pilotHealth.components,
+                total_units_sold: totalUnits
             },
             series,
             context,

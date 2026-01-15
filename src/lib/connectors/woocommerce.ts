@@ -62,66 +62,82 @@ export class WooCommerceConnector implements DataSourceConnector {
             const MAX_PAGES = isDeepSync ? 500 : 20;
 
             while (hasMore && page <= MAX_PAGES) {
-                // Formatting: Remove milliseconds for PHP compatibility (YYYY-MM-DDTHH:mm:ss)
-                const afterDate = fromDate.toISOString().split('.')[0];
-                const beforeDate = toDate.toISOString().split('.')[0];
-
                 const queryParams: any = {
                     per_page: '100',
                     page: page.toString(),
                     order: isDeepSync ? 'asc' : 'desc',
                     orderby: 'date',
-                    status: 'completed,processing,on-hold,refunded',
-                    after: afterDate
+                    status: 'any' // Safer to fetch all and filter locally
                 };
 
-                // Only add 'before' for Incremental to lock the window. 
-                // For Deep Sync, we want everything up to now.
+                // Only use 'after' for Incremental mode. 
+                // For Deep Sync, we want ABSOLUTE history, so NO date filters.
                 if (!isDeepSync) {
-                    queryParams.before = beforeDate;
+                    // Format: YYYY-MM-DDTHH:mm:ss (No Z, No ms)
+                    queryParams.after = fromDate.toISOString().split('.')[0];
                 }
 
                 const params = new URLSearchParams(queryParams);
                 const url = `${this.storeUrl}/wp-json/wc/v3/orders?${params.toString()}`;
 
-                console.log(`[WooCommerce] Fetching Page ${page}. Url: ${url}`);
+                console.log(`[WooCommerce] Fetching Page ${page}. Mode: ${isDeepSync ? 'DEEP' : 'INC'}. Url: ${url}`);
 
-                // Retry logic for stability
+                // Retry logic
                 let res;
                 let retries = 0;
                 while (retries < 3) {
                     try {
                         const controller = new AbortController();
-                        const timeoutId = setTimeout(() => controller.abort(), 20000); // 20s timeout
+                        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
                         res = await fetch(url, {
                             headers: { "Authorization": this.getAuthHeader() },
                             signal: controller.signal
                         });
                         clearTimeout(timeoutId);
                         if (res.ok) break;
-                        throw new Error(`Status ${res.status}`);
-                    } catch (e) {
+                        throw new Error(`Status ${res.status} - ${res.statusText}`);
+                    } catch (e: any) {
                         retries++;
-                        console.warn(`[WooCommerce] Retry ${retries} for page ${page}`);
-                        await new Promise(r => setTimeout(r, 1000 * retries));
+                        console.warn(`[WooCommerce] Retry ${retries} for page ${page}. Error: ${e.message}`);
+                        await new Promise(r => setTimeout(r, 2000 * retries));
                     }
                 }
 
                 if (!res || !res.ok) {
-                    throw new Error(`WooCommerce API Failed after retries: ${res?.statusText}`);
+                    throw new Error(`WooCommerce API Failed: ${res?.status} ${res?.statusText}`);
                 }
 
-                const orders = await res.json();
+                const pageOrders = await res.json();
 
-                if (Array.isArray(orders)) {
-                    allOrders.push(...orders);
-                    if (orders.length < 100) {
+                if (Array.isArray(pageOrders)) {
+                    // Log diagnosis for this page
+                    if (pageOrders.length > 0) {
+                        const firstDate = pageOrders[0].date_created;
+                        const lastDate = pageOrders[pageOrders.length - 1].date_created;
+                        console.log(`[WooCommerce] Page ${page} received ${pageOrders.length} orders. Range: ${firstDate} -> ${lastDate}`);
+                    } else {
+                        console.log(`[WooCommerce] Page ${page} received 0 orders.`);
+                    }
+
+                    // Local Filtering for Status
+                    const validStatuses = ['completed', 'processing', 'on-hold', 'refunded'];
+                    const filteredOrders = pageOrders.filter((o: any) => validStatuses.includes(o.status));
+
+                    allOrders.push(...filteredOrders);
+
+                    if (pageOrders.length < 100) {
                         hasMore = false;
                     } else {
                         page++;
                     }
                 } else {
-                    hasMore = false; // Unexpected response
+                    console.error("[WooCommerce] Unexpected response format (not array):", pageOrders);
+                    hasMore = false;
+                }
+
+                if (page >= MAX_PAGES) {
+                    console.warn(`[WooCommerce] Safety Cap Reached (${MAX_PAGES} pages). Sync stopped.`);
+                    hasMore = false;
                 }
             }
 

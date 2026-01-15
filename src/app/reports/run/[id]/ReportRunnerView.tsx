@@ -44,10 +44,14 @@ export default function ReportRunnerView({ report, orgId }: ReportRunnerViewProp
 
     // Auto-run on mount & range change
     useEffect(() => {
-        run();
+        if (!range.start || !range.end) return; // simple valid check
+
+        const controller = new AbortController();
+        run(controller.signal);
+        return () => controller.abort();
     }, [range.start, range.end]);
 
-    const run = async () => {
+    const run = async (signal?: AbortSignal) => {
         setLoading(true);
         setError(null);
         try {
@@ -59,18 +63,26 @@ export default function ReportRunnerView({ report, orgId }: ReportRunnerViewProp
                     reportDefinitionId: report.id,
                     config: config,
                     range: range
-                })
+                }),
+                signal
             });
 
             if (!res.ok) {
                 const err = await res.json();
                 throw new Error(err.error || 'Failed to run report');
             }
-            setData(await res.json());
+            const jsonData = await res.json();
+            if (!signal?.aborted) {
+                setData(jsonData);
+            }
         } catch (e: any) {
-            setError(e.message);
+            if (e.name !== 'AbortError') {
+                setError(e.message);
+            }
         } finally {
-            setLoading(false);
+            if (!signal?.aborted) {
+                setLoading(false);
+            }
         }
     };
 
@@ -106,7 +118,7 @@ export default function ReportRunnerView({ report, orgId }: ReportRunnerViewProp
             <AlertCircle size={48} className="text-red-500 mb-4" />
             <h2 className="text-xl font-bold mb-2">Error Generating Report</h2>
             <p className="text-gray-500 mb-6">{error}</p>
-            <button onClick={run} className="px-4 py-2 bg-black text-white rounded-lg">Retry</button>
+            <button onClick={() => run()} className="px-4 py-2 bg-black text-white rounded-lg">Retry</button>
         </div>
     );
 

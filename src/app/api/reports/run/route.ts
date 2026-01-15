@@ -16,13 +16,17 @@ export async function POST(req: NextRequest) {
     }
 
     try {
+        const startDate = new Date(range.start);
+        const endDate = new Date(range.end);
+        endDate.setHours(23, 59, 59, 999);
+
         // Run Calculation
         const result = await ReportService.runReport(
             organizationId,
             config,
             {
-                start: new Date(range.start),
-                end: new Date(range.end),
+                start: startDate,
+                end: endDate,
                 granularity: range.granularity || 'day'
             }
         );

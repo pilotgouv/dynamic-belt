@@ -13,17 +13,42 @@ export async function POST(req: Request) {
     try {
         const body = await req.json();
         const { connectionId } = body;
+        const orgId = (session.user as any).organizationId;
 
-        if (!connectionId) {
-            return NextResponse.json({ error: 'Missing connectionId' }, { status: 400 });
+        if (connectionId) {
+            // Single Sync
+            // Verify ownership
+            const output = await SyncService.syncConnection(connectionId);
+            return NextResponse.json({ success: true, result: output });
+        } else {
+            // Sync All Active
+            const { ConnectionService } = await import('@/lib/connections/connection-service');
+            const activeConnections = await ConnectionService.getActiveConnections(orgId);
+
+            const results = [];
+            for (const conn of activeConnections) {
+                try {
+                    const res = await SyncService.syncConnection(conn.id, conn);
+                    results.push({
+                        provider: conn.provider,
+                        success: res.success,
+                        imported: res.importedCount,
+                        error: null
+                    });
+                } catch (e: any) {
+                    console.error(`Sync failed for ${conn.provider}`, e);
+                    results.push({
+                        provider: conn.provider,
+                        success: false,
+                        imported: 0,
+                        error: e.message
+                    });
+                }
+            }
+
+            return NextResponse.json({ success: true, results });
         }
 
-        // 2. Trigger Sync Logic
-        // In a real app, this might offload to a queue (Redis/Bull)
-        // For V2 prototype, we run it inline (careful with Vercel timeouts)
-        const result = await SyncService.syncConnection(connectionId);
-
-        return NextResponse.json({ success: true, result });
     } catch (error: any) {
         console.error("Sync API Error:", error);
         return NextResponse.json({ success: false, error: error.message }, { status: 500 });

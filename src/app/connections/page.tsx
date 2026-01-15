@@ -23,6 +23,28 @@ export default function ConnectionsPage() {
     const [connections, setConnections] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [limitReached, setLimitReached] = useState(false);
+    const [syncing, setSyncing] = useState(false);
+
+    // Sync All Handler
+    const handleSyncAll = async () => {
+        setSyncing(true);
+        try {
+            const res = await fetch('/api/sync', { method: 'POST', body: JSON.stringify({}) });
+            const data = await res.json();
+            if (data.results) {
+                const successCount = data.results.filter((r: any) => r.success).length;
+                alert(`Sync terminé: ${successCount} succès / ${data.results.length} total.`);
+                fetchConnections();
+            } else if (data.result) {
+                alert(data.result.success ? "Sync terminé avec succès." : "Erreur Sync.");
+                fetchConnections();
+            }
+        } catch (e) {
+            alert("Erreur Sync");
+        } finally {
+            setSyncing(false);
+        }
+    };
 
     // Modal State
     const [showModal, setShowModal] = useState(false);
@@ -150,9 +172,25 @@ export default function ConnectionsPage() {
 
     return (
         <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-            <div style={{ marginBottom: '3rem' }}>
-                <h1 style={{ fontSize: '2rem', fontWeight: 700, marginBottom: '0.5rem', color: 'var(--text-primary)' }}>Integrations</h1>
-                <p style={{ color: 'var(--text-secondary)' }}>Connectez vos sources de données pour alimenter PILOT.</p>
+            <div style={{ marginBottom: '3rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                    <h1 style={{ fontSize: '2rem', fontWeight: 700, marginBottom: '0.5rem', color: 'var(--text-primary)' }}>Integrations</h1>
+                    <p style={{ color: 'var(--text-secondary)' }}>Connectez vos sources de données pour alimenter PILOT.</p>
+                </div>
+                {connections.length > 0 && (
+                    <button
+                        onClick={handleSyncAll}
+                        disabled={syncing}
+                        style={{
+                            background: 'var(--bg-card)', border: '1px solid var(--border-subtle)',
+                            padding: '0.6rem 1rem', borderRadius: '8px', cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600
+                        }}
+                    >
+                        <RefreshCw size={18} className={syncing ? 'animate-spin' : ''} />
+                        {syncing ? 'Synchronisation...' : 'Synchroniser Tout'}
+                    </button>
+                )}
             </div>
 
             {/* Paywall Banner */}

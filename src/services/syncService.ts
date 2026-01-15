@@ -2,29 +2,31 @@ import { prisma } from "@/lib/prisma";
 import { ShopifyConnector } from "@/lib/connectors/shopify";
 import { BusinessEngine } from "@/lib/engine";
 import { AlertService } from "@/services/alertService";
-
-import { decrypt } from "@/lib/crypto";
+import { ConnectionService } from "@/lib/connections/connection-service";
 
 export class SyncService {
 
-    static async syncConnection(connectionId: string) {
-        // 1. Fetch Connection Details from DB
-        const connection = await prisma.connection.findUnique({
-            where: { id: connectionId },
-            include: { organization: { include: { settings: true } } }
-        });
+    static async syncConnection(connectionId: string, connectionEntity?: any) {
+        // 1. Fetch Connection Details (if not provided)
+        let connection = connectionEntity;
+        if (!connection) {
+            connection = await prisma.connection.findUnique({
+                where: { id: connectionId },
+                include: { organization: { include: { settings: true } } }
+            });
+        }
 
         if (!connection || !connection.credentialsEncrypted || !connection.organization.settings) {
             throw new Error("Connection invalid or Organization settings missing.");
         }
 
-        // Decrypt Credentials
-        let credentials: any = {};
+        // Decrypt Credentials via Service
+        let credentials;
         try {
-            const json = decrypt(connection.credentialsEncrypted);
-            credentials = JSON.parse(json);
+            credentials = ConnectionService.getDecryptedCredentials(connection);
         } catch (e) {
-            throw new Error("Failed to decrypt credentials.");
+            await ConnectionService.markConnectionError(connectionId, "Decryption failed");
+            throw e;
         }
 
         // 2. Instantiate Connector

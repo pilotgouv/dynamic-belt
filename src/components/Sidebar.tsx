@@ -67,7 +67,7 @@ export default function Sidebar() {
                             width: '100%',
                             padding: '0.5rem',
                             borderRadius: '6px',
-                            background: 'rgba(255,255,255,0.05)',
+                            background: 'var(--bg-hover)',
                             border: '1px solid var(--border-subtle)',
                             color: 'var(--text-secondary)',
                             fontSize: '0.75rem',

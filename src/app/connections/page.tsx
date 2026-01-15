@@ -1,137 +1,279 @@
+
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import styles from './connections.module.css';
-import { CheckCircle, AlertCircle, RefreshCw, Loader2, ArrowRight } from 'lucide-react';
-import { useApp } from '@/hooks/useApp';
+import {
+    CheckCircle, AlertCircle, RefreshCw, Loader2, Plus, Trash2, Key
+} from 'lucide-react';
 import { useSession } from 'next-auth/react';
-import Link from 'next/link';
+
+// Provider Setup
+const PROVIDERS = {
+    SHOPIFY: { label: 'Shopify', icon: '🛍️', fields: ['shopDomain', 'accessToken'] },
+    WOOCOMMERCE: { label: 'WooCommerce', icon: '🛒', fields: ['storeUrl', 'consumerKey', 'consumerSecret'] },
+    GOOGLE_ADS: { label: 'Google Ads', icon: '📈', fields: ['customerId', 'accessToken', 'refreshToken', 'developerToken'] },
+    META_ADS: { label: 'Meta Ads', icon: '📘', fields: ['adAccountId', 'accessToken'] },
+    TIKTOK_ADS: { label: 'TikTok Ads', icon: '🎵', fields: ['advertiserId', 'accessToken'] },
+    GA4: { label: 'Google Analytics 4', icon: '📊', fields: ['propertyId', 'clientEmail', 'privateKey'] }
+};
 
 export default function ConnectionsPage() {
-    const { connections, toggleConnection } = useApp();
     const { data: session } = useSession();
+    const [connections, setConnections] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [limitReached, setLimitReached] = useState(false);
 
-    // Plan Logic
-    const userPlan = (session?.user as any)?.plan || 'free';
-    const activeCount = connections.filter(c => c.status === 'connected' || c.status === 'syncing').length;
-    const isLimitReached = userPlan === 'free' && activeCount >= 1;
+    // Modal State
+    const [showModal, setShowModal] = useState(false);
+    const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
+    const [formData, setFormData] = useState<any>({});
+    const [saving, setSaving] = useState(false);
+    const [testResult, setTestResult] = useState<any>(null);
 
-    const renderCard = (item: any) => {
-        const isSyncing = item.status === 'syncing';
-        const isConnected = item.status === 'connected';
-        const isError = item.status === 'error';
+    // Fetch Connections
+    const fetchConnections = async () => {
+        try {
+            const res = await fetch('/api/connections');
+            if (res.ok) {
+                const data = await res.json();
+                setConnections(data);
 
+                // Check limit locally for UI feedback (Server enforces too)
+                const plan = (session?.user as any)?.plan || 'free';
+                const activeCount = data.filter((c: any) => c.status === 'ACTIVE').length;
+                if (plan === 'free' && activeCount >= 1) setLimitReached(true);
+                else setLimitReached(false);
+            }
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        if (session) fetchConnections();
+    }, [session]);
+
+    // Handle Delete
+    const handleDelete = async (id: string) => {
+        if (!confirm("Supprimer cette connexion ?")) return;
+        await fetch(`/api/connections/${id}`, { method: 'DELETE' });
+        fetchConnections();
+    };
+
+    // Handle Test
+    const handleTest = async () => {
+        setSaving(true);
+        setTestResult(null);
+        try {
+            const res = await fetch('/api/connections/test', {
+                method: 'POST',
+                body: JSON.stringify({ provider: selectedProvider, credentials: formData })
+            });
+            const data = await res.json();
+            setTestResult(data);
+            setSaving(false);
+            return data.success;
+        } catch (e) {
+            setTestResult({ success: false, error: "Erreur test" });
+            setSaving(false);
+            return false;
+        }
+    };
+
+    // Handle Save
+    const handleSave = async () => {
+        // Run test first? Optional. Let's save directly or after test.
+        // User asked for "Test connection" button separate from save? 
+        // "Test credentials without saving OR with optional save".
+        // Let's do: Test -> If success -> Save.
+
+        const success = await handleTest();
+        if (!success) return;
+
+        setSaving(true);
+        try {
+            const res = await fetch('/api/connections', {
+                method: 'POST',
+                body: JSON.stringify({
+                    provider: selectedProvider,
+                    name: `${PROVIDERS[selectedProvider as keyof typeof PROVIDERS].label} Store`,
+                    credentials: formData
+                })
+            });
+
+            if (!res.ok) {
+                const d = await res.json();
+                throw new Error(d.error || 'Erreur sauvegarde');
+            }
+
+            setShowModal(false);
+            setFormData({});
+            setTestResult(null);
+            fetchConnections();
+        } catch (e: any) {
+            alert(e.message);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    // Render Form Fields
+    const renderFields = () => {
+        if (!selectedProvider) return null;
+        const fields = PROVIDERS[selectedProvider as keyof typeof PROVIDERS].fields;
         return (
-            <div key={item.id} className={styles.card} style={{
-                borderColor: isConnected ? 'rgba(16, 185, 129, 0.3)' : 'var(--glass-border)'
-            }}>
-                <div className={styles.cardHeader}>
-                    <div className={styles.platformInfo}>
-                        <div className={styles.platformIcon}>
-                            {/* Simplified icon logic */}
-                            {item.provider === 'shopify' ? '🛍️' : item.provider.includes('ads') ? '📊' : '📈'}
-                        </div>
-                        <div>
-                            <span className={styles.platformName}>{item.name}</span>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
-                                <span className={`${styles.status} ${isConnected ? styles.statusConnected :
-                                    isError ? styles.statusError : styles.statusDisconnected
-                                    }`}>
-                                    {isSyncing ? 'Synchronisation...' :
-                                        isConnected ? 'Connecté & Actif' :
-                                            isError ? 'Erreur API' : 'Non connecté'}
-                                </span>
-
-                                {isSyncing && <Loader2 size={12} className="animate-spin text-silver" style={{ animation: 'spin 1s linear infinite' }} />}
-                            </div>
-                        </div>
+            <div style={{ display: 'grid', gap: '1rem' }}>
+                {fields.map(field => (
+                    <div key={field}>
+                        <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.3rem', color: 'var(--text-secondary)' }}>
+                            {field.toUpperCase()}
+                        </label>
+                        <input
+                            className="input-premium"
+                            type={field.toLowerCase().includes('token') || field.includes('Secret') || field.includes('Key') ? 'password' : 'text'}
+                            value={formData[field] || ''}
+                            onChange={e => setFormData({ ...formData, [field]: e.target.value })}
+                            style={{
+                                width: '100%', padding: '0.6rem', borderRadius: '6px',
+                                border: '1px solid var(--border-subtle)', background: 'var(--bg-card)',
+                                color: 'var(--text-primary)'
+                            }}
+                        />
                     </div>
-                    {isConnected && <CheckCircle size={18} className="text-green" style={{ color: '#10B981' }} />}
-                </div>
-
-                {isError && (
-                    <div style={{ fontSize: '0.75rem', color: '#EF4444', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <AlertCircle size={12} /> Token expiré
-                    </div>
-                )}
-
-                {item.lastSyncAt && isConnected && (
-                    <div className={styles.lastSync}>
-                        <RefreshCw size={12} style={{ display: 'inline', marginRight: '4px' }} />
-                        Synchro : {item.lastSyncAt}
-                    </div>
-                )}
-
-                <button
-                    className={`${styles.button} ${isConnected ? styles.btnManage : styles.btnConnect}`}
-                    onClick={() => toggleConnection(item.id)}
-                    disabled={isSyncing || (!isConnected && isLimitReached)}
-                    style={{ position: 'relative', overflow: 'hidden', opacity: (!isConnected && isLimitReached) ? 0.5 : 1 }}
-                >
-                    {isSyncing ? (
-                        <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                            Configuration...
-                        </span>
-                    ) : isConnected ? (
-                        'Gérer / Déconnecter'
-                    ) : (
-                        <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                            Connecter <ArrowRight size={14} />
-                        </span>
-                    )}
-                </button>
+                ))}
             </div>
         );
     };
 
     return (
-        <div className={styles.container}>
-            <div className={styles.header}>
-                <h1 className={styles.title}>Connexions & Sources</h1>
-                <p className={styles.subtitle}>Gérez vos intégrations via l&apos;API sécurisée (OAuth).</p>
+        <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+            <div style={{ marginBottom: '3rem' }}>
+                <h1 style={{ fontSize: '2rem', fontWeight: 700, marginBottom: '0.5rem', color: 'var(--text-primary)' }}>Integrations</h1>
+                <p style={{ color: 'var(--text-secondary)' }}>Connectez vos sources de données pour alimenter PILOT.</p>
             </div>
 
             {/* Paywall Banner */}
-            {isLimitReached && (
+            {limitReached && (
                 <div style={{
-                    marginBottom: '2rem', padding: '1rem', background: 'rgba(212, 175, 55, 0.1)',
-                    border: '1px solid #D4AF37', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between'
+                    background: 'rgba(180, 146, 53, 0.1)', border: '1px solid var(--accent-gold)',
+                    borderRadius: '8px', padding: '1rem', marginBottom: '2rem',
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center'
                 }}>
-                    <div>
-                        <strong style={{ color: '#D4AF37' }}>Limite du plan gratuit atteinte</strong>
-                        <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.9rem', color: '#ccc' }}>
-                            Passez au Premium pour connecter des sources illimitées.
-                        </p>
-                    </div>
-                    <Link href="/pricing" style={{
-                        background: '#D4AF37', color: '#000', padding: '0.5rem 1rem', borderRadius: '6px',
-                        fontWeight: 600, textDecoration: 'none', fontSize: '0.9rem'
-                    }}>
-                        Voir Premium →
-                    </Link>
+                    <div style={{ color: 'var(--accent-gold)', fontWeight: 600 }}>Plan Gratuit : Limite atteinte (1 connexion active).</div>
+                    <a href="/pricing" style={{ background: 'var(--accent-gold)', color: '#fff', padding: '0.5rem 1rem', borderRadius: '6px', fontSize: '0.9rem', fontWeight: 600 }}>Passer Premium</a>
                 </div>
             )}
 
-            <div className={styles.section}>
-                <h2 className={styles.sectionTitle}>E-Commerce (CMS)</h2>
-                <div className={styles.grid}>
-                    {connections.filter(i => i.provider === 'shopify' || i.provider === 'woocommerce' || i.provider === 'amazon').map(renderCard)}
+            {/* Active Connections List */}
+            {connections.length > 0 && (
+                <div style={{ display: 'grid', gap: '1rem', marginBottom: '3rem' }}>
+                    {connections.map(c => (
+                        <div key={c.id} className="glass" style={{
+                            padding: '1.5rem', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                            background: 'var(--bg-card)', boxShadow: 'var(--shadow-sm)'
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                <div style={{ fontSize: '2rem' }}>{PROVIDERS[c.provider as keyof typeof PROVIDERS]?.icon || '🔗'}</div>
+                                <div>
+                                    <div style={{ fontWeight: 600, fontSize: '1.1rem' }}>{c.name}</div>
+                                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                        <span style={{
+                                            width: 8, height: 8, borderRadius: '50%',
+                                            background: c.status === 'ACTIVE' ? 'var(--accent-teal)' : 'var(--text-muted)'
+                                        }} />
+                                        {c.status}
+                                        {c.lastSyncAt && <span>• Sync: {new Date(c.lastSyncAt).toLocaleDateString()}</span>}
+                                    </div>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => handleDelete(c.id)}
+                                style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', padding: '0.5rem' }}
+                            >
+                                <Trash2 size={18} />
+                            </button>
+                        </div>
+                    ))}
                 </div>
+            )}
+
+            {/* Add New Grid */}
+            <h3 style={{ fontSize: '1.2rem', marginBottom: '1.5rem', color: 'var(--text-primary)' }}>Ajouter une connexion</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.5rem' }}>
+                {Object.entries(PROVIDERS).map(([key, info]) => (
+                    <button
+                        key={key}
+                        disabled={limitReached}
+                        onClick={() => { setSelectedProvider(key); setShowModal(true); setFormData({}); setTestResult(null); }}
+                        style={{
+                            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1rem',
+                            padding: '2rem', borderRadius: '12px', border: '1px solid var(--border-subtle)',
+                            background: limitReached ? 'var(--bg-hover)' : 'var(--bg-card)',
+                            opacity: limitReached ? 0.6 : 1,
+                            cursor: limitReached ? 'not-allowed' : 'pointer',
+                            transition: 'all 0.2s'
+                        }}
+                    >
+                        <div style={{ fontSize: '2.5rem' }}>{info.icon}</div>
+                        <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{info.label}</div>
+                    </button>
+                ))}
             </div>
 
-            <div className={styles.section}>
-                <h2 className={styles.sectionTitle}>Publicité</h2>
-                <div className={styles.grid}>
-                    {connections.filter(i => i.provider.includes('_ads')).map(renderCard)}
-                </div>
-            </div>
+            {/* Connection Modal */}
+            {showModal && selectedProvider && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+                    background: 'rgba(0,0,0,0.5)', zIndex: 100, backdropFilter: 'blur(4px)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center'
+                }}>
+                    <div style={{
+                        background: 'var(--bg-card)', width: '500px', maxWidth: '90%',
+                        borderRadius: '16px', padding: '2rem', boxShadow: 'var(--shadow-lg)'
+                    }}>
+                        <h2 style={{ fontSize: '1.5rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            {PROVIDERS[selectedProvider as keyof typeof PROVIDERS].icon} Configurer {PROVIDERS[selectedProvider as keyof typeof PROVIDERS].label}
+                        </h2>
 
-            <div className={styles.section}>
-                <h2 className={styles.sectionTitle}>Analytics & Trafic</h2>
-                <div className={styles.grid}>
-                    {connections.filter(i => i.provider === 'ga4').map(renderCard)}
+                        {renderFields()}
+
+                        {testResult && (
+                            <div style={{
+                                marginTop: '1rem', padding: '0.8rem', borderRadius: '6px',
+                                background: testResult.success ? '#dcfce7' : '#fee2e2',
+                                color: testResult.success ? '#166534' : '#991b1b',
+                                fontSize: '0.9rem'
+                            }}>
+                                {testResult.success ? '✅ ' + testResult.message : '❌ ' + testResult.error}
+                            </div>
+                        )}
+
+                        <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem', justifyContent: 'flex-end' }}>
+                            <button
+                                onClick={() => setShowModal(false)}
+                                style={{ background: 'transparent', border: '1px solid var(--border-subtle)', padding: '0.6rem 1.2rem', borderRadius: '8px', cursor: 'pointer' }}
+                            >
+                                Annuler
+                            </button>
+                            <button
+                                onClick={handleSave}
+                                disabled={saving}
+                                style={{
+                                    background: 'var(--primary-gradient)', color: '#fff', border: 'none',
+                                    padding: '0.6rem 1.5rem', borderRadius: '8px', fontWeight: 600, cursor: 'pointer',
+                                    display: 'flex', alignItems: 'center', gap: '0.5rem'
+                                }}
+                            >
+                                {saving && <Loader2 size={16} className="animate-spin" />}
+                                {saving ? 'Test & Sauvegarde...' : 'Tester & Sauvegarder'}
+                            </button>
+                        </div>
+                    </div>
                 </div>
-            </div>
+            )}
         </div>
     );
 }

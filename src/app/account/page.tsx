@@ -29,8 +29,10 @@ export default async function AccountPage() {
             where: { organizationId: orgId }
         });
         // Count connections
+        // Count connections - assume limit applies to ACTIVE connections only? 
+        // Or all except disabled? Let's say all NOT DISABLED for now.
         connectionCount = await prisma.connection.count({
-            where: { organizationId: orgId, status: { not: 'disconnected' } }
+            where: { organizationId: orgId, status: { not: 'DISABLED' } }
         });
     }
 

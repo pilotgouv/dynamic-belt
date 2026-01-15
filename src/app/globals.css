@@ -1,21 +1,36 @@
 :root {
-  --background: #050505;
-  --foreground: #ededed;
+  /* Bases */
+  --background: #F8FAFC;
+  /* Slate 50 */
+  --foreground: #0F172A;
+  /* Slate 900 */
 
-  --bg-sidebar: #0a0a0a;
-  --bg-card: rgba(255, 255, 255, 0.03);
-  --bg-hover: rgba(255, 255, 255, 0.06);
+  /* Surfaces */
+  --bg-sidebar: #FFFFFF;
+  --bg-card: #FFFFFF;
+  --bg-hover: #F1F5F9;
+  /* Slate 100 */
 
-  --text-primary: #ededed;
-  --text-secondary: #a1a1aa;
-  --text-muted: #52525b;
+  /* Typography */
+  --text-primary: #0F172A;
+  --text-secondary: #64748B;
+  --text-muted: #94A3B8;
 
-  --accent-gold: #D4AF37;
-  --accent-silver: #E2E2E2;
-  --accent-blue: #3b82f6;
+  /* Brand */
+  --primary: #2563EB;
+  --primary-gradient: linear-gradient(135deg, #1E40AF 0%, #3B82F6 100%);
+  --accent-teal: #0D9488;
+  --accent-gold: #B49235;
+  /* Darker gold for light bg contrast */
 
-  --border-subtle: rgba(255, 255, 255, 0.08);
-  --glass-border: rgba(255, 255, 255, 0.05);
+  /* Borders */
+  --border-subtle: #E2E8F0;
+  --glass-border: rgba(0, 0, 0, 0.05);
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
 
   --font-sans: var(--font-inter);
 }

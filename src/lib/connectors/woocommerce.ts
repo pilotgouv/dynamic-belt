@@ -67,14 +67,14 @@ export class WooCommerceConnector implements DataSourceConnector {
                     page: page.toString(),
                     order: isDeepSync ? 'asc' : 'desc',
                     orderby: 'date',
-                    status: 'any' // Safer to fetch all and filter locally
+                    status: 'any',
+                    // ALWAYS send 'after' to force the timeframe, but keep format clean
+                    after: fromDate.toISOString().split('.')[0]
                 };
 
-                // Only use 'after' for Incremental mode. 
-                // For Deep Sync, we want ABSOLUTE history, so NO date filters.
+                // Only use 'before' for Incremental mode to cap the window.
                 if (!isDeepSync) {
-                    // Format: YYYY-MM-DDTHH:mm:ss (No Z, No ms)
-                    queryParams.after = fromDate.toISOString().split('.')[0];
+                    queryParams.before = toDate.toISOString().split('.')[0];
                 }
 
                 const params = new URLSearchParams(queryParams);

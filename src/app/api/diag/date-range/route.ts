@@ -29,6 +29,13 @@ export async function GET(req: Request) {
             _count: { id: true }
         });
 
+        // Get Last Sync Log
+        const connections = await prisma.connection.findMany({ where: { organizationId: orgId }, select: { id: true } });
+        const lastLog = await prisma.syncRun.findFirst({
+            where: { connectionId: { in: connections.map(c => c.id) } },
+            orderBy: { finishedAt: 'desc' }
+        });
+
         return NextResponse.json({
             finance: {
                 min: finance._min.date,
@@ -39,7 +46,8 @@ export async function GET(req: Request) {
                 min: products._min.date,
                 max: products._max.date,
                 count: products._count.id
-            }
+            },
+            last_sync_log: lastLog
         });
     } catch (e: any) {
         return NextResponse.json({ error: e.message }, { status: 500 });

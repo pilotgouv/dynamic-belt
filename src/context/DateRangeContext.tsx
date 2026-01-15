@@ -77,7 +77,7 @@ export function DateRangeProvider({ children }: { children: React.ReactNode }) {
                 end.setMonth(11, 31);
                 break;
             case 'all_time':
-                start.setFullYear(2020, 0, 1);
+                start.setFullYear(2000, 0, 1);
                 break;
         }
         return { start, end, period };

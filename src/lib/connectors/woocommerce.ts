@@ -49,42 +49,69 @@ export class WooCommerceConnector implements DataSourceConnector {
         };
 
         try {
-            // Fetch Orders
+            // Determine Mode based on timeframe
+            // If fromDate is older than 365 days, treat as Deep Sync (Historical)
+            const isDeepSync = fromDate.getTime() < (new Date().getTime() - 365 * 24 * 60 * 60 * 1000);
+
+            console.log(`[WooCommerce] Starting Sync. Mode: ${isDeepSync ? 'DEEP (Historical)' : 'INCREMENTAL'}. From: ${fromDate.toISOString()}`);
+
             let page = 1;
             let hasMore = true;
             const allOrders: any[] = [];
-            const MAX_PAGES = 100; // Safety cap 10,000 orders
+            // Deep Sync: safety cap 500 pages (50,000 orders). Incremental: 20 pages (2,000 orders).
+            const MAX_PAGES = isDeepSync ? 500 : 20;
 
             while (hasMore && page <= MAX_PAGES) {
                 const params = new URLSearchParams({
-                    after: fromDate.toISOString(),
-                    before: toDate.toISOString(),
+                    // Deep Sync: Go forward (Ascending) from start date.
+                    // Incremental: Go backward (Descending) from now/recent.
+                    order: isDeepSync ? 'asc' : 'desc',
+                    orderby: 'date',
                     per_page: '100',
                     page: page.toString(),
-                    status: 'completed,processing,on-hold',
-                    orderby: 'date',
-                    order: 'desc'
+                    status: 'completed,processing,on-hold,refunded', // Added refunded for net calculation
+                    after: fromDate.toISOString(),
+                    before: toDate.toISOString()
                 });
 
                 const url = `${this.storeUrl}/wp-json/wc/v3/orders?${params.toString()}`;
 
-                const res = await fetch(url, {
-                    headers: {
-                        "Authorization": this.getAuthHeader()
+                // Retry logic for stability
+                let res;
+                let retries = 0;
+                while (retries < 3) {
+                    try {
+                        const controller = new AbortController();
+                        const timeoutId = setTimeout(() => controller.abort(), 20000); // 20s timeout
+                        res = await fetch(url, {
+                            headers: { "Authorization": this.getAuthHeader() },
+                            signal: controller.signal
+                        });
+                        clearTimeout(timeoutId);
+                        if (res.ok) break;
+                        throw new Error(`Status ${res.status}`);
+                    } catch (e) {
+                        retries++;
+                        console.warn(`[WooCommerce] Retry ${retries} for page ${page}`);
+                        await new Promise(r => setTimeout(r, 1000 * retries));
                     }
-                });
+                }
 
-                if (!res.ok) {
-                    throw new Error(`WooCommerce API Error: ${res.statusText} (${res.status}) on page ${page}`);
+                if (!res || !res.ok) {
+                    throw new Error(`WooCommerce API Failed after retries: ${res?.statusText}`);
                 }
 
                 const orders = await res.json();
-                allOrders.push(...orders);
 
-                if (orders.length < 100) {
-                    hasMore = false;
+                if (Array.isArray(orders)) {
+                    allOrders.push(...orders);
+                    if (orders.length < 100) {
+                        hasMore = false;
+                    } else {
+                        page++;
+                    }
                 } else {
-                    page++;
+                    hasMore = false; // Unexpected response
                 }
             }
 

@@ -1,41 +1,46 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { auth } from '@/auth';
 
-export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
-export async function GET() {
+export async function GET(req: Request) {
+    const session = await auth();
+    if (!session || !session.user) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const orgId = (session.user as any).organizationId;
+
     try {
+        // Finance Diagnostic
         const finance = await prisma.financeDaily.aggregate({
+            where: { organizationId: orgId },
             _min: { date: true },
             _max: { date: true },
-            _count: true
+            _count: { id: true }
         });
 
+        // Product Diagnostic
         const products = await prisma.productDaily.aggregate({
+            where: { organizationId: orgId },
             _min: { date: true },
             _max: { date: true },
-            _count: true
-        });
-
-        const ads = await prisma.adsDaily.aggregate({
-            _min: { date: true },
-            _max: { date: true },
-            _count: true
-        });
-
-        const traffic = await prisma.trafficDaily.aggregate({
-            _min: { date: true },
-            _max: { date: true },
-            _count: true
+            _count: { id: true }
         });
 
         return NextResponse.json({
-            finance: { min: finance._min.date, max: finance._max.date, count: finance._count },
-            products: { min: products._min.date, max: products._max.date, count: products._count },
-            ads: { min: ads._min.date, max: ads._max.date, count: ads._count },
-            traffic: { min: traffic._min.date, max: traffic._max.date, count: traffic._count },
+            finance: {
+                min: finance._min.date,
+                max: finance._max.date,
+                count: finance._count.id
+            },
+            products: {
+                min: products._min.date,
+                max: products._max.date,
+                count: products._count.id
+            }
         });
-
     } catch (e: any) {
         return NextResponse.json({ error: e.message }, { status: 500 });
     }

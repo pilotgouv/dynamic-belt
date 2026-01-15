@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import Image from 'next/image';
 import { LogOut, CreditCard, Shield, Activity, HardDrive, Smartphone, ChevronDown, ChevronUp } from 'lucide-react';
 import Link from 'next/link';
+import DangerZoneClient from '@/components/account/DangerZoneClient';
 
 export const runtime = 'nodejs';
 
@@ -187,8 +188,10 @@ export default async function AccountPage() {
                     </details>
                 </section>
 
+                <DangerZoneClient />
+
             </div>
-        </div>
+        </div >
     );
 }
 

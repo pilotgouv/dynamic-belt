@@ -47,6 +47,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
     debug: process.env.NODE_ENV !== 'production',
     trustHost: true,
+    secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || "temp_secret_change_me_in_prod_urgently",
     callbacks: {
         async session({ session, token }: any) {
             if (token) {

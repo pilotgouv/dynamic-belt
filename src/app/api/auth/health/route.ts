@@ -11,6 +11,10 @@ export async function GET() {
     return NextResponse.json({
         status: 'ok',
         diagnostics: {
+            // Identifier le projet pour être sûr qu'on est sur le bon
+            projectId: process.env.VERCEL_PROJECT_ID,
+            projectName: process.env.VERCEL_PROJECT_NAME,
+
             hasAuthSecret: !!process.env.AUTH_SECRET,
             hasNextAuthSecret: !!process.env.NEXTAUTH_SECRET,
             hasDatabaseUrl: !!process.env.DATABASE_URL,

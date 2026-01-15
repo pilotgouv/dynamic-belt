@@ -17,29 +17,34 @@ export class WooCommerceConnector implements DataSourceConnector {
         this.consumerSecret = consumerSecret;
     }
 
-    private getAuthHeader(): string {
-        if (typeof window !== "undefined") return ""; // Should run on server
-        return "Basic " + Buffer.from(`${this.consumerKey}:${this.consumerSecret}`).toString("base64");
-    }
-
     async connect(credentials: any): Promise<boolean> {
         return await this.validateToken();
     }
 
+    private buildUrl(path: string, params: Record<string, string | number | boolean | undefined>) {
+        const url = new URL(`${this.storeUrl}${path}`);
+        // Woo safe auth (most compatible) - Pass credentials in Query Params
+        url.searchParams.set("consumer_key", this.consumerKey);
+        url.searchParams.set("consumer_secret", this.consumerSecret);
+
+        Object.entries(params).forEach(([k, v]) => {
+            if (v !== undefined && v !== null) url.searchParams.set(k, String(v));
+        });
+        return url.toString();
+    }
+
     async validateToken(): Promise<boolean> {
         try {
-            const res = await fetch(`${this.storeUrl}/wp-json/wc/v3/system_status`, {
-                headers: {
-                    "Authorization": this.getAuthHeader()
-                }
-            });
+            // Remove Authorization header usage
+            const url = this.buildUrl("/wp-json/wc/v3/system_status", {});
+            const res = await fetch(url);
             return res.status === 200;
         } catch (e) {
             return false;
         }
     }
 
-    async sync(fromDate: Date, toDate: Date): Promise<ConnectorResult> {
+    async sync(fromDate: Date, toDate: Date, options: { deepSync?: boolean } = {}): Promise<ConnectorResult> {
         const result: ConnectorResult = {
             success: false,
             importedCount: 0,
@@ -48,21 +53,21 @@ export class WooCommerceConnector implements DataSourceConnector {
             productMetrics: []
         };
 
+        const allOrders: any[] = [];
+        let page = 1;
+        let hasMore = true;
+
+        // Force Deep Sync if requested or if date is very old
+        const isDeepSync = options.deepSync || fromDate.getFullYear() <= 2020;
+
+        console.log(`[WooCommerce] Starting Sync. DeepSync: ${isDeepSync}. From ${fromDate.toISOString()}`);
+
         try {
-            // Determine Mode based on timeframe
-            // If fromDate is older than 365 days, treat as Deep Sync (Historical)
-            const isDeepSync = fromDate.getTime() < (new Date().getTime() - 365 * 24 * 60 * 60 * 1000);
-
-            console.log(`[WooCommerce] Starting Sync. Mode: ${isDeepSync ? 'DEEP (Historical)' : 'INCREMENTAL'}. From: ${fromDate.toISOString()}`);
-
-            let page = 1;
-            let hasMore = true;
-            const allOrders: any[] = [];
             // Deep Sync: safety cap 500 pages (50,000 orders). Incremental: 20 pages (2,000 orders).
             const MAX_PAGES = isDeepSync ? 500 : 20;
 
             while (hasMore && page <= MAX_PAGES) {
-                const queryParams: any = {
+                const queryParams: Record<string, string | number | boolean | undefined> = {
                     per_page: '100',
                     page: page.toString(),
                     order: isDeepSync ? 'asc' : 'desc',
@@ -70,21 +75,22 @@ export class WooCommerceConnector implements DataSourceConnector {
                     // NO STATUS param at all (Fetch everything: cancelled, failed, etc.)
                 };
 
-                // Date Filters: 
-                // Deep Sync: NO FILTERS. Fetch all history from page 1.
-                // Incremental: Use 'after' (and 'before' if needed) to target recent window.
+                // Date Filters:
+                // Incremental only. Deep sync gets everything.
                 if (!isDeepSync) {
                     // Format: YYYY-MM-DDTHH:mm:ss
                     queryParams.after = fromDate.toISOString().split('.')[0];
                 }
 
-                // Remove 'before' to avoid potential cutoff issues even in Incremental, unless necessary.
-                // queryParams.before = ... (Removed for safety)
+                // Incremental 'before' cap
+                if (!isDeepSync) {
+                    queryParams.before = toDate.toISOString().split('.')[0];
+                }
 
-                const params = new URLSearchParams(queryParams);
-                const url = `${this.storeUrl}/wp-json/wc/v3/orders?${params.toString()}`;
+                // USE NEW BUILD_URL (No Headers needed)
+                const url = this.buildUrl("/wp-json/wc/v3/orders", queryParams);
 
-                console.log(`[WooCommerce] Fetching Page ${page}. Mode: ${isDeepSync ? 'DEEP' : 'INC'}. Url: ${url}`);
+                console.log(`[WooCommerce] Fetching Page ${page}. Mode: ${isDeepSync ? 'DEEP' : 'INC'}. Url: ${url.replace(this.consumerSecret, '***')}`);
 
                 // Retry logic
                 let res;
@@ -92,11 +98,11 @@ export class WooCommerceConnector implements DataSourceConnector {
                 while (retries < 3) {
                     try {
                         const controller = new AbortController();
-                        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
-                        res = await fetch(url, {
-                            headers: { "Authorization": this.getAuthHeader() },
-                            signal: controller.signal
-                        });
+                        const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+                        // NO HEADERS! Auth is in URL.
+                        res = await fetch(url, { signal: controller.signal });
+
                         clearTimeout(timeoutId);
                         if (res.ok) break;
                         throw new Error(`Status ${res.status} - ${res.statusText}`);
@@ -130,12 +136,8 @@ export class WooCommerceConnector implements DataSourceConnector {
                     }, {});
                     console.log(`[WooCommerce] Page ${page} Statuses:`, JSON.stringify(statusCounts));
 
-                    // Local Filtering: We requested ALL statuses, so we must filter now to keep only valid sales
-                    // Added 'completed' explicit check just in case, though usually works.
+                    // Local Filtering: Relaxed for Debugging
                     const validStatuses = ['completed', 'processing', 'on-hold', 'refunded', 'pending', 'failed', 'cancelled'];
-                    // TEMPORARY: I am opening the floodgates to ALL statuses to see what happens in the DB.
-                    // We can filter in the Dashboard later. For now, we want DATA.
-
                     const filteredOrders = pageOrders.filter((o: any) => validStatuses.includes(o.status));
 
                     console.log(`[WooCommerce] Page ${page}: Importing ${filteredOrders.length} / ${pageOrders.length} orders (Validation relaxed).`);

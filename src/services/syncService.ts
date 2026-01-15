@@ -55,8 +55,8 @@ export class SyncService {
             console.log(`Starting Incremental Sync from ${fromDate.toISOString()}`);
         } else {
             // Phase 3.1: Full Historical Sync (First run or after error)
-            fromDate.setFullYear(2020, 0, 1);
-            console.log(`Starting Full Historical Sync from ${fromDate.toISOString()} (Forced: ${!!options.fullSync})`);
+            fromDate.setFullYear(2000, 0, 1);
+            console.log(`[SyncService] FORCING FULL HISTORICAL SYNC for ${connection.provider}. From: ${fromDate.toISOString()}`);
         }
 
         const result = await connector.sync(fromDate, toDate);

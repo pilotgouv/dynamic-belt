@@ -62,19 +62,29 @@ export class WooCommerceConnector implements DataSourceConnector {
             const MAX_PAGES = isDeepSync ? 500 : 20;
 
             while (hasMore && page <= MAX_PAGES) {
-                const params = new URLSearchParams({
-                    // Deep Sync: Go forward (Ascending) from start date.
-                    // Incremental: Go backward (Descending) from now/recent.
-                    order: isDeepSync ? 'asc' : 'desc',
-                    orderby: 'date',
+                // Formatting: Remove milliseconds for PHP compatibility (YYYY-MM-DDTHH:mm:ss)
+                const afterDate = fromDate.toISOString().split('.')[0];
+                const beforeDate = toDate.toISOString().split('.')[0];
+
+                const queryParams: any = {
                     per_page: '100',
                     page: page.toString(),
-                    status: 'completed,processing,on-hold,refunded', // Added refunded for net calculation
-                    after: fromDate.toISOString(),
-                    before: toDate.toISOString()
-                });
+                    order: isDeepSync ? 'asc' : 'desc',
+                    orderby: 'date',
+                    status: 'completed,processing,on-hold,refunded',
+                    after: afterDate
+                };
 
+                // Only add 'before' for Incremental to lock the window. 
+                // For Deep Sync, we want everything up to now.
+                if (!isDeepSync) {
+                    queryParams.before = beforeDate;
+                }
+
+                const params = new URLSearchParams(queryParams);
                 const url = `${this.storeUrl}/wp-json/wc/v3/orders?${params.toString()}`;
+
+                console.log(`[WooCommerce] Fetching Page ${page}. Url: ${url}`);
 
                 // Retry logic for stability
                 let res;

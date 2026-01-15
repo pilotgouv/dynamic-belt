@@ -217,7 +217,7 @@ export class SyncService {
             await prisma.connection.update({
                 where: { id: connection.id },
                 data: {
-                    status: 'connected',
+                    status: 'ACTIVE',
                     lastSyncAt: new Date(),
                     lastSyncStatus: 'success',
                     errorMessage: null
@@ -237,7 +237,7 @@ export class SyncService {
             await prisma.connection.update({
                 where: { id: connection.id },
                 data: {
-                    status: 'error',
+                    status: 'ERROR',
                     lastSyncStatus: 'failed',
                     errorMessage: result.errors[0] || 'Unknown error'
                 }

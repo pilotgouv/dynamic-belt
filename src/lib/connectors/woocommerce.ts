@@ -136,11 +136,17 @@ export class WooCommerceConnector implements DataSourceConnector {
                     }, {});
                     console.log(`[WooCommerce] Page ${page} Statuses:`, JSON.stringify(statusCounts));
 
-                    // Local Filtering: Relaxed for Debugging
-                    const validStatuses = ['completed', 'processing', 'on-hold', 'refunded', 'pending', 'failed', 'cancelled'];
+                    // Local Filtering: Relaxed to include custom statuses like 'delivered'
+                    // We found 'delivered' (35 orders) which is non-standard but valid for this store.
+                    const validStatuses = ['completed', 'processing', 'on-hold', 'refunded', 'pending', 'failed', 'cancelled', 'delivered', 'shipped', 'done'];
                     const filteredOrders = pageOrders.filter((o: any) => validStatuses.includes(o.status));
 
-                    console.log(`[WooCommerce] Page ${page}: Importing ${filteredOrders.length} / ${pageOrders.length} orders (Validation relaxed).`);
+                    if (filteredOrders.length < pageOrders.length) {
+                        const dropped = pageOrders.filter((o: any) => !validStatuses.includes(o.status));
+                        console.warn(`[WooCommerce Warning] Dropped ${dropped.length} orders with unknown statuses:`, dropped.map((o: any) => o.status));
+                    }
+
+                    console.log(`[WooCommerce] Page ${page}: Importing ${filteredOrders.length} / ${pageOrders.length} orders.`);
 
                     allOrders.push(...filteredOrders);
 

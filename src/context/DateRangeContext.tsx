@@ -23,8 +23,8 @@ export function DateRangeProvider({ children }: { children: React.ReactNode }) {
     const router = useRouter();
     const searchParams = useSearchParams();
 
-    // Default to last 30 days
-    const [range, setRangeState] = useState<DateRange>(() => calculateRange('last_30_days'));
+    // Default to All Time (as per user request V4)
+    const [range, setRangeState] = useState<DateRange>(() => calculateRange('all_time'));
 
     // Sync from URL on mount
     useEffect(() => {

@@ -269,9 +269,13 @@ export class ReportService {
         });
 
         // 4. Summaries
-        const totalRevenue = series.reduce((a, b) => a + b.revenue_gross, 0);
-        const totalSpend = series.reduce((a, b) => a + b.spend, 0);
+        const totalRevenue = series.reduce((a, b) => a + (b.revenue_gross || 0), 0);
+        const totalRefunds = series.reduce((a, b) => a + (b.refunds || 0), 0);
+        const totalRevenueNet = series.reduce((a, b) => a + (b.revenue_net || 0), 0);
+        const totalCogs = series.reduce((a, b) => a + (b.cogs || 0), 0);
+        const totalSpend = series.reduce((a, b) => a + (b.spend || 0), 0);
         const totalProfit = series.reduce((a, b) => a + (b.profit_estimated || 0), 0);
+
         const globalMargin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
         const globalRoas = totalSpend > 0 ? totalRevenue / totalSpend : 0;
 
@@ -286,6 +290,9 @@ export class ReportService {
         return {
             summary: {
                 total_revenue: totalRevenue,
+                total_revenue_net: totalRevenueNet,
+                total_refunds: totalRefunds,
+                total_cogs: totalCogs,
                 total_spend: totalSpend,
                 total_profit: totalProfit,
                 global_margin: globalMargin,

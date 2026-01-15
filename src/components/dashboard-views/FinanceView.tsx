@@ -69,9 +69,9 @@ export default function FinanceView({ orgId }: FinanceViewProps) {
         <div className="p-8 max-w-[1600px] mx-auto space-y-8 animate-in fade-in duration-500">
             {/* KPI Row */}
             <div className="grid grid-cols-5 gap-4">
-                <KPICard title="Ventes Brutes" value={summary.revenue_gross ? formatCurrency(summary.revenue_gross) : '-'} loading={loading} />
-                <KPICard title="CA Net" value={summary.revenue_net ? formatCurrency(summary.revenue_net) : '-'} loading={loading} />
-                <KPICard title="Coûts (COGS)" value={summary.cogs ? formatCurrency(summary.cogs) : '-'} loading={loading} />
+                <KPICard title="Ventes Brutes" value={summary.total_revenue ? formatCurrency(summary.total_revenue) : '-'} loading={loading} />
+                <KPICard title="CA Net" value={summary.total_revenue_net ? formatCurrency(summary.total_revenue_net) : '-'} loading={loading} />
+                <KPICard title="Coûts (COGS)" value={summary.total_cogs ? formatCurrency(summary.total_cogs) : '-'} loading={loading} />
                 <KPICard title="Vrai Profit" value={summary.total_profit ? formatCurrency(summary.total_profit) : '-'} loading={loading} />
                 <KPICard title="Marge %" value={summary.global_margin ? summary.global_margin.toFixed(1) : '-'} suffix="%" loading={loading} />
             </div>
@@ -121,8 +121,8 @@ export default function FinanceView({ orgId }: FinanceViewProps) {
                                     </td>
                                     <td className="px-6 py-4">
                                         <span className={`px-2 py-1 rounded text-xs font-bold ${row.margin_percent >= 20 ? 'bg-green-100 text-green-700' :
-                                                row.margin_percent > 0 ? 'bg-yellow-100 text-yellow-700' :
-                                                    'bg-red-100 text-red-700'
+                                            row.margin_percent > 0 ? 'bg-yellow-100 text-yellow-700' :
+                                                'bg-red-100 text-red-700'
                                             }`}>
                                             {row.margin_percent.toFixed(1)}%
                                         </span>

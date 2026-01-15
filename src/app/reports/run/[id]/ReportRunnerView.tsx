@@ -153,17 +153,25 @@ export default function ReportRunnerView({ report, orgId }: ReportRunnerViewProp
                                     <thead>
                                         <tr style={{ borderBottom: '2px solid #f1f1f1', color: '#888', textAlign: 'right' }}>
                                             <th style={{ textAlign: 'left', padding: '1rem 0.5rem' }}>Date</th>
-                                            <th style={{ padding: '1rem 0.5rem' }}>Revenue</th>
-                                            <th style={{ padding: '1rem 0.5rem' }}>Spend</th>
+                                            <th style={{ padding: '1rem 0.5rem' }}>Gross Rev</th>
+                                            <th style={{ padding: '1rem 0.5rem' }}>Refunds</th>
+                                            <th style={{ padding: '1rem 0.5rem' }}>Net Rev</th>
+                                            <th style={{ padding: '1rem 0.5rem' }}>COGS</th>
+                                            <th style={{ padding: '1rem 0.5rem' }}>Fees</th>
+                                            <th style={{ padding: '1rem 0.5rem' }}>Ads</th>
                                             <th style={{ padding: '1rem 0.5rem' }}>Profit</th>
                                             <th style={{ padding: '1rem 0.5rem' }}>Margin</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {data.series.map((row: any) => (
-                                            <tr key={row.date} style={{ borderBottom: '1px solid #f9f9f9' }}>
+                                            <tr key={row.date} style={{ borderBottom: '1px solid #f9f9f9', fontSize: '0.9rem' }}>
                                                 <td style={{ textAlign: 'left', padding: '1rem 0.5rem', fontWeight: 500 }}>{row.date}</td>
                                                 <td style={{ textAlign: 'right', padding: '1rem 0.5rem' }}>{formatCurrency(row.revenue_gross)}</td>
+                                                <td style={{ textAlign: 'right', padding: '1rem 0.5rem', color: '#ef4444' }}>{row.refunds > 0 ? '-' + formatCurrency(row.refunds) : '-'}</td>
+                                                <td style={{ textAlign: 'right', padding: '1rem 0.5rem', fontWeight: 600 }}>{formatCurrency(row.revenue_net)}</td>
+                                                <td style={{ textAlign: 'right', padding: '1rem 0.5rem', color: '#666' }}>{formatCurrency(row.cogs)}</td>
+                                                <td style={{ textAlign: 'right', padding: '1rem 0.5rem', color: '#666' }}>{formatCurrency((row.fees || 0) + (row.shipping || 0))}</td>
                                                 <td style={{ textAlign: 'right', padding: '1rem 0.5rem', color: '#666' }}>{formatCurrency(row.spend)}</td>
                                                 <td style={{ textAlign: 'right', padding: '1rem 0.5rem', color: row.profit_estimated > 0 ? '#10b981' : '#ef4444', fontWeight: 600 }}>
                                                     {formatCurrency(row.profit_estimated)}

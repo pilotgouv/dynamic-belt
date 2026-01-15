@@ -21,15 +21,16 @@ export const DEFAULT_SETTINGS: UserSettings = {
  */
 export class BusinessEngine {
 
-    static calculateProfit(revenueGross: number, adSpend: number, orders: number, settings: UserSettings): Partial<FinanceDailyMetric> {
+    static calculateProfit(revenueGross: number, refundsValue: number, adSpend: number, orders: number, settings: UserSettings): Partial<FinanceDailyMetric> {
         const { platformFeesPercent, shippingCostAvg, cogsEsitmatedPercent } = settings.costProfile;
 
         const fees = revenueGross * (platformFeesPercent / 100);
         const shipping = orders * shippingCostAvg;
         const cogs = revenueGross * (cogsEsitmatedPercent / 100);
 
-        // Net Revenue (simplified without specific refunds input for now)
-        const revenueNet = revenueGross * (1 - (settings.costProfile.returnRatePercent / 100));
+        // Net Revenue: Use real refunds if available, otherwise estimate
+        const refundAmount = refundsValue > 0 ? refundsValue : (revenueGross * (settings.costProfile.returnRatePercent / 100));
+        const revenueNet = revenueGross - refundAmount;
 
         // True Economic Profit Formula
         const totalCosts = adSpend + fees + shipping + cogs;

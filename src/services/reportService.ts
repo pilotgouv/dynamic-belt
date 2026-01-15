@@ -92,17 +92,22 @@ export class ReportService {
 
             // Sums
             const revenue = fRows.reduce((a, b) => a + b.revenueGross, 0);
+            const refunds = fRows.reduce((a, b) => a + b.refundsValue, 0);
             const orders = fRows.reduce((a, b) => a + b.ordersCount, 0);
             const spend = aRows.reduce((a, b) => a + b.spend, 0);
             const sessions = tRows.reduce((a, b) => a + b.sessions, 0);
 
             // Engine Calc
-            const profitMetrics = BusinessEngine.calculateProfit(revenue, spend, orders, settings);
+            const profitMetrics = BusinessEngine.calculateProfit(revenue, refunds, spend, orders, settings);
 
             return {
                 date: dateKey,
                 revenue_gross: revenue,
+                refunds: refunds,
                 revenue_net: profitMetrics.revenueNet,
+                cogs: profitMetrics.costOfGoods,
+                fees: profitMetrics.transactionFees,
+                shipping: profitMetrics.shippingCost,
                 spend: spend,
                 profit_estimated: profitMetrics.profitEstimated,
                 margin_percent: profitMetrics.profitMarginPercent,

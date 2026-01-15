@@ -7,7 +7,7 @@ export const runtime = 'nodejs';
 // Predefined Definitions for "Standard" Dashboards
 const DASHBOARD_PRESETS: any = {
     overview: {
-        name: "Vue Exécutive (Vue d'ensemble)",
+        name: "Vue d'ensemble",
         config: {
             metrics: ["revenue", "profit", "spend", "margin"],
             dimensions: ["date"],
@@ -15,7 +15,7 @@ const DASHBOARD_PRESETS: any = {
         }
     },
     finance: {
-        name: "Performance Financière",
+        name: "Finance",
         config: {
             metrics: ["revenue_gross", "revenue_net", "refunds", "cogs", "fees"],
             dimensions: ["date"],
@@ -23,7 +23,7 @@ const DASHBOARD_PRESETS: any = {
         }
     },
     ads: {
-        name: "Dépenses & ROAS (Ads)",
+        name: "Performance Ads",
         config: {
             metrics: ["spend", "impressions", "clicks", "roas", "cpa"],
             dimensions: ["channel", "date"],
@@ -31,7 +31,7 @@ const DASHBOARD_PRESETS: any = {
         }
     },
     traffic: {
-        name: "Trafic & Conversion",
+        name: "Trafic",
         config: {
             metrics: ["sessions", "users", "conversion_rate", "revenue_per_session"],
             dimensions: ["source", "medium"],
@@ -39,7 +39,7 @@ const DASHBOARD_PRESETS: any = {
         }
     },
     products: {
-        name: "Intelligence Produits",
+        name: "Produits",
         config: {
             metrics: ["units_sold", "revenue"],
             dimensions: ["product_name"],

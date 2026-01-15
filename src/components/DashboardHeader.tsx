@@ -3,7 +3,7 @@ import { useDateRange, DatePeriod } from '@/context/DateRangeContext';
 import { Calendar } from 'lucide-react';
 
 export default function DashboardHeader() {
-    const { range, setPeriod } = useDateRange();
+    const { range, setPeriod, setCustomRange } = useDateRange();
 
     const options: { label: string, value: DatePeriod }[] = [
         { label: '7J', value: 'last_7_days' },
@@ -27,17 +27,42 @@ export default function DashboardHeader() {
                         key={opt.value}
                         onClick={() => setPeriod(opt.value)}
                         className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all ${range.period === opt.value
-                                ? 'bg-white text-black shadow-sm'
-                                : 'text-gray-500 hover:text-black'
+                            ? 'bg-white text-black shadow-sm'
+                            : 'text-gray-500 hover:text-black'
                             }`}
                     >
                         {opt.label}
                     </button>
                 ))}
                 <div className="w-px h-4 bg-gray-300 mx-1"></div>
-                <button className="px-3 py-1.5 rounded-full text-xs font-medium text-gray-500 hover:text-black flex items-center gap-1">
-                    <Calendar size={12} /> Personnalisé
-                </button>
+
+                {range.period === 'custom' ? (
+                    <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-4 duration-300">
+                        <input
+                            type="date"
+                            value={range.start ? range.start.toISOString().split('T')[0] : ''}
+                            onChange={(e) => setCustomRange(new Date(e.target.value), range.end)}
+                            className="bg-white border border-gray-200 rounded-lg px-2 py-1 text-xs font-medium focus:ring-2 focus:ring-black outline-none"
+                        />
+                        <span className="text-gray-400 text-xs">to</span>
+                        <input
+                            type="date"
+                            value={range.end ? range.end.toISOString().split('T')[0] : ''}
+                            onChange={(e) => setCustomRange(range.start, new Date(e.target.value))}
+                            className="bg-white border border-gray-200 rounded-lg px-2 py-1 text-xs font-medium focus:ring-2 focus:ring-black outline-none"
+                        />
+                        <button onClick={() => setPeriod('last_30_days')} className="ml-1 p-1 hover:bg-gray-200 rounded-full text-gray-400">
+                            ✕
+                        </button>
+                    </div>
+                ) : (
+                    <button
+                        onClick={() => setPeriod('custom')}
+                        className="px-3 py-1.5 rounded-full text-xs font-medium text-gray-500 hover:text-black flex items-center gap-1 hover:bg-white hover:shadow-sm transition-all"
+                    >
+                        <Calendar size={12} /> Personnalisé
+                    </button>
+                )}
             </div>
         </header>
     );

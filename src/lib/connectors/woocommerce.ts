@@ -66,11 +66,16 @@ export class WooCommerceConnector implements DataSourceConnector {
                     per_page: '100',
                     page: page.toString(),
                     order: isDeepSync ? 'asc' : 'desc',
-                    orderby: 'date',
-                    status: 'any',
-                    // ALWAYS send 'after' to force the timeframe, but keep format clean
-                    after: fromDate.toISOString().split('.')[0]
+                    orderby: isDeepSync ? 'id' : 'date', // ID is indestructible for history
+                    status: 'any'
                 };
+
+                // Only use date filters for Incremental (recent) sync
+                if (!isDeepSync) {
+                    queryParams.after = fromDate.toISOString().split('.')[0];
+                } else {
+                    // Deep Sync: No 'after'. We rely on orderby=id asc to get everything from #1.
+                }
 
                 // Only use 'before' for Incremental mode to cap the window.
                 if (!isDeepSync) {
@@ -80,7 +85,7 @@ export class WooCommerceConnector implements DataSourceConnector {
                 const params = new URLSearchParams(queryParams);
                 const url = `${this.storeUrl}/wp-json/wc/v3/orders?${params.toString()}`;
 
-                console.log(`[WooCommerce] Fetching Page ${page}. Mode: ${isDeepSync ? 'DEEP' : 'INC'}. Url: ${url}`);
+                console.log(`[WooCommerce] Fetching Page ${page}. Mode: ${isDeepSync ? 'DEEP (ID)' : 'INC (Date)'}. Url: ${url}`);
 
                 // Retry logic
                 let res;

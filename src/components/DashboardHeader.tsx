@@ -11,6 +11,7 @@ export default function DashboardHeader() {
         { label: '90J', value: 'last_90_days' },
         { label: 'YTD', value: 'year_to_date' },
         { label: '1 An', value: 'last_year' },
+        { label: 'Tout', value: 'all_time' },
     ];
 
     return (

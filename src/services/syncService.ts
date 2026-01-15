@@ -43,11 +43,21 @@ export class SyncService {
             throw new Error(`Provider ${connection.provider} not supported yet.`);
         }
 
-        // 3. Run Sync (Last 30 days default backfill)
+        // 3. Run Sync (Incremental or Full)
         const toDate = new Date();
-        const fromDate = new Date();
-        // Executive decision: Sync 1 full year of history
-        fromDate.setFullYear(toDate.getFullYear() - 1);
+        let fromDate = new Date();
+
+        // Phase 3.1: True Incremental Sync
+        if (connection.lastSyncAt && connection.lastSyncStatus === 'success') {
+            fromDate = new Date(connection.lastSyncAt);
+            // Safety: Go back 1 hour to ensure no overlap/gaps
+            fromDate.setHours(fromDate.getHours() - 1);
+            console.log(`Starting Incremental Sync from ${fromDate.toISOString()}`);
+        } else {
+            // Phase 3.1: Full Historical Sync (First run or after error)
+            fromDate.setFullYear(2020, 0, 1);
+            console.log(`Starting Full Historical Sync from ${fromDate.toISOString()}`);
+        }
 
         const result = await connector.sync(fromDate, toDate);
 

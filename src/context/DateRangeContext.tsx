@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
-export type DatePeriod = 'today' | 'last_7_days' | 'last_30_days' | 'last_90_days' | 'month_to_date' | 'year_to_date' | 'last_year' | 'custom';
+export type DatePeriod = 'today' | 'last_7_days' | 'last_30_days' | 'last_90_days' | 'month_to_date' | 'year_to_date' | 'last_year' | 'custom' | 'all_time';
 
 interface DateRange {
     start: Date;
@@ -76,12 +76,15 @@ export function DateRangeProvider({ children }: { children: React.ReactNode }) {
                 end.setFullYear(end.getFullYear() - 1);
                 end.setMonth(11, 31);
                 break;
+            case 'all_time':
+                start.setFullYear(2020, 0, 1);
+                break;
         }
         return { start, end, period };
     }
 
     function isValidPeriod(p: string): boolean {
-        return ['today', 'last_7_days', 'last_30_days', 'last_90_days', 'month_to_date', 'year_to_date', 'last_year'].includes(p);
+        return ['today', 'last_7_days', 'last_30_days', 'last_90_days', 'month_to_date', 'year_to_date', 'last_year', 'all_time'].includes(p);
     }
 
     const setPeriod = (period: DatePeriod) => {

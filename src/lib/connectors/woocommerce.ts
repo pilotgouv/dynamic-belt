@@ -61,7 +61,9 @@ export class WooCommerceConnector implements DataSourceConnector {
                     before: toDate.toISOString(),
                     per_page: '100',
                     page: page.toString(),
-                    status: 'completed,processing,on-hold'
+                    status: 'completed,processing,on-hold',
+                    orderby: 'date',
+                    order: 'desc'
                 });
 
                 const url = `${this.storeUrl}/wp-json/wc/v3/orders?${params.toString()}`;
@@ -89,14 +91,48 @@ export class WooCommerceConnector implements DataSourceConnector {
             const orders = allOrders;
 
             // Normalize
-            const dailyMap = new Map<string, { revenue: number, net: number, orders: number, refunds: number }>();
-            const productMap = new Map<string, { name: string, units: number, revenue: number }>();
+            const dailyMap = new Map<string, { revenue: number, net: number, orders: number, refunds: number, cogs: number }>();
+            const productMap = new Map<string, { name: string, units: number, revenue: number, sku: string, cogs: number }>();
 
             orders.forEach((order: any) => {
                 const day = order.date_created.split('T')[0];
+                let orderCogs = 0;
+
+                // Product Stats
+                if (order.line_items && Array.isArray(order.line_items)) {
+                    order.line_items.forEach((item: any) => {
+                        const key = `${day}::${item.sku || item.product_id}`;
+                        const sku = item.sku || `ID-${item.product_id}`;
+                        const pCurrent = productMap.get(key) || { name: item.name, units: 0, revenue: 0, sku, cogs: 0 };
+
+                        // Handle potential string numbers
+                        const qty = parseFloat(item.quantity) || 0;
+                        const lineTotal = parseFloat(item.total) || 0;
+
+                        // Try find COGS in meta
+                        let unitCost = 0;
+                        const metas = item.meta_data || [];
+                        // Common Cost Keys from plugins (Cost of Goods, etc.)
+                        const costMeta = metas.find((m: any) => ['_cost', '_product_cost', '_alg_wc_cog_cost', '_wc_cog_cost', 'cost_price', 'cost'].includes(m.key));
+                        if (costMeta) {
+                            unitCost = parseFloat(costMeta.value) || 0;
+                        }
+
+                        const lineCogs = unitCost * qty;
+                        orderCogs += lineCogs;
+
+                        productMap.set(key, {
+                            name: item.name,
+                            units: pCurrent.units + qty,
+                            revenue: pCurrent.revenue + lineTotal,
+                            sku: sku,
+                            cogs: pCurrent.cogs + lineCogs
+                        });
+                    });
+                }
 
                 // Finance Stats
-                const current = dailyMap.get(day) || { revenue: 0, net: 0, orders: 0, refunds: 0 };
+                const current = dailyMap.get(day) || { revenue: 0, net: 0, orders: 0, refunds: 0, cogs: 0 };
                 const total = parseFloat(order.total);
                 const refundTotal = parseFloat(order.refund_total || '0');
 
@@ -104,26 +140,9 @@ export class WooCommerceConnector implements DataSourceConnector {
                     revenue: current.revenue + total,
                     net: current.net + (total - refundTotal),
                     orders: current.orders + 1,
-                    refunds: current.refunds + refundTotal
+                    refunds: current.refunds + refundTotal,
+                    cogs: current.cogs + orderCogs
                 });
-
-                // Product Stats
-                if (order.line_items && Array.isArray(order.line_items)) {
-                    order.line_items.forEach((item: any) => {
-                        const key = `${day}::${item.sku || item.product_id}`;
-                        const pCurrent = productMap.get(key) || { name: item.name, units: 0, revenue: 0 };
-
-                        // Handle potential string numbers
-                        const qty = parseFloat(item.quantity) || 0;
-                        const lineTotal = parseFloat(item.total) || 0;
-
-                        productMap.set(key, {
-                            name: item.name,
-                            units: pCurrent.units + qty,
-                            revenue: pCurrent.revenue + lineTotal
-                        });
-                    });
-                }
             });
 
             dailyMap.forEach((val, date) => {
@@ -132,20 +151,21 @@ export class WooCommerceConnector implements DataSourceConnector {
                     revenueGross: val.revenue,
                     revenueNet: val.net,
                     ordersCount: val.orders,
-                    refundsValue: val.refunds
+                    refundsValue: val.refunds,
+                    costOfGoods: val.cogs
                 });
             });
 
             productMap.forEach((val, key) => {
-                const [date, sku] = key.split('::');
+                const [date] = key.split('::');
                 result.productMetrics.push({
                     date: date,
-                    sku: sku,
+                    sku: val.sku,
                     name: val.name,
                     unitsSold: val.units,
                     revenue: val.revenue,
-                    marginEstimated: 0, // Calculated by Engine later
-                    profitEstimated: 0 // Calculated by Engine later
+                    marginEstimated: 0,
+                    profitEstimated: val.revenue - val.cogs // Real Profit if COGS found!
                 });
             });
 

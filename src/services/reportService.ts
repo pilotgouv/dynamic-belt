@@ -142,11 +142,11 @@ export class ReportService {
         // Context: Top Drivers (Executive Layer 2)
         // Fetch Top 3 Products & Channels regardless of report type
         const topProductsRaw = await prisma.productDaily.groupBy({
-            by: ['name'],
+            by: ['name', 'sku'],
             where: { organizationId, date: { gte: range.start, lte: range.end } },
-            _sum: { revenue: true, unitsSold: true },
+            _sum: { revenue: true, unitsSold: true, profitEstimated: true },
             orderBy: { _sum: { revenue: 'desc' } },
-            take: 3
+            take: 5
         });
 
         const topChannelsRaw = await prisma.adsDaily.groupBy({
@@ -160,9 +160,10 @@ export class ReportService {
         const context = {
             heroProducts: topProductsRaw.map(p => ({
                 name: p.name,
+                sku: p.sku,
                 revenue: p._sum.revenue || 0,
                 units: p._sum.unitsSold || 0,
-                profit_estimated: (p._sum.revenue || 0) * 0.4 // Mock 40% margin
+                profit_estimated: p._sum.profitEstimated || (p._sum.revenue || 0) * 0.4 // Fallback to 40% if no real data
             })),
             topChannels: topChannelsRaw.map(c => ({
                 channel: c.channel,

@@ -80,6 +80,19 @@ export class SyncService {
                         }
                     );
 
+                    // Override with Real COGS if available from Connector
+                    if (dayMetric.costOfGoods !== undefined) {
+                        profitMetrics.costOfGoods = dayMetric.costOfGoods;
+                        profitMetrics.profitEstimated = (profitMetrics.revenueNet || 0)
+                            - profitMetrics.costOfGoods
+                            - (profitMetrics.shippingCost || 0)
+                            - (profitMetrics.transactionFees || 0);
+
+                        profitMetrics.profitMarginPercent = (profitMetrics.revenueGross || 0) > 0
+                            ? (profitMetrics.profitEstimated / (profitMetrics.revenueGross || 1)) * 100
+                            : 0;
+                    }
+
                     await prisma.financeDaily.upsert({
                         where: {
                             organizationId_date: {
@@ -208,7 +221,9 @@ export class SyncService {
                         update: {
                             unitsSold: p.unitsSold,
                             revenue: p.revenue,
-                            name: p.name || 'Unknown Product'
+                            name: p.name || 'Unknown Product',
+                            profitEstimated: p.profitEstimated,
+                            marginEstimated: p.marginEstimated
                         },
                         create: {
                             organizationId: connection.organizationId,
@@ -216,7 +231,9 @@ export class SyncService {
                             sku: p.sku || 'UNKNOWN',
                             name: p.name || 'Unknown Product',
                             unitsSold: p.unitsSold,
-                            revenue: p.revenue
+                            revenue: p.revenue,
+                            profitEstimated: p.profitEstimated || 0,
+                            marginEstimated: p.marginEstimated || 0
                         }
                     });
                 }

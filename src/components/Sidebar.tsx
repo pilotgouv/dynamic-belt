@@ -66,20 +66,7 @@ export default function Sidebar() {
             <div className={styles.footer}>
                 <div style={{ marginBottom: '1rem', padding: '0 1rem' }}>
                     <button
-                        style={{
-                            width: '100%',
-                            padding: '0.5rem',
-                            borderRadius: '6px',
-                            background: 'var(--bg-hover)',
-                            border: '1px solid var(--border-subtle)',
-                            color: 'var(--text-secondary)',
-                            fontSize: '0.75rem',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: '6px'
-                        }}
+                        className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-gradient-to-r from-gray-900 to-black hover:from-black hover:to-gray-800 text-white text-xs font-medium rounded-lg shadow-sm hover:shadow-md transition-all active:scale-95 border border-transparent"
                         onClick={async () => {
                             if (isSyncing) return;
                             setIsSyncing(true);

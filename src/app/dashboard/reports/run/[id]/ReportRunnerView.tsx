@@ -183,20 +183,41 @@ export default function ReportRunnerView({ report, orgId }: ReportRunnerViewProp
                                     </div>
 
                                     {/* HERO PRODUCTS DRIVER */}
-                                    <div style={{ background: THEME.card, padding: '1.5rem', borderRadius: '20px', border: `1px solid ${THEME.border}`, boxShadow: THEME.shadow }}>
-                                        <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                            <Package size={16} color={THEME.warning} /> Hero Products Impact
-                                        </h3>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                            {data.context.heroProducts.map((p: any, i: number) => (
-                                                <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.9rem' }}>
-                                                    <div style={{ fontWeight: 500, maxWidth: '200px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</div>
-                                                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                                                        <span style={{ fontWeight: 600 }}>{formatCurrency(p.revenue)}</span>
-                                                        <span style={{ padding: '2px 6px', background: '#FFF7ED', color: '#F59E0B', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 700 }}>{((p.revenue / (data.summary.total_revenue || 1)) * 100).toFixed(0)}%</span>
+                                    {/* HERO PRODUCTS DRIVER */}
+                                    <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
+                                        <div className="flex items-center gap-2 mb-5">
+                                            <div className="p-2 bg-amber-50 rounded-lg">
+                                                <Trophy size={18} className="text-amber-600" />
+                                            </div>
+                                            <h3 className="font-bold text-gray-900 text-sm uppercase tracking-wide">Impact Produits Hero</h3>
+                                        </div>
+                                        <div className="space-y-5">
+                                            {data.context.heroProducts.map((p: any, i: number) => {
+                                                const total = data.summary.total_revenue || 1;
+                                                const share = (p.revenue / total) * 100;
+                                                return (
+                                                    <div key={i} className="group">
+                                                        <div className="flex justify-between items-center text-sm mb-2">
+                                                            <div className="flex flex-col">
+                                                                <span className="font-semibold text-gray-800 truncate max-w-[180px]" title={p.name}>{p.name}</span>
+                                                                {p.sku && <span className="text-xs text-gray-400 font-mono">{p.sku}</span>}
+                                                            </div>
+                                                            <div className="flex items-center gap-3">
+                                                                <span className="font-bold text-gray-900">{formatCurrency(p.revenue)}</span>
+                                                                <span className="text-xs font-bold bg-amber-50 text-amber-700 px-2 py-0.5 rounded-full border border-amber-100">
+                                                                    {share.toFixed(0)}%
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                        <div className="h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
+                                                            <div
+                                                                className="h-full bg-gradient-to-r from-amber-400 to-orange-500 rounded-full transition-all duration-1000 ease-out"
+                                                                style={{ width: `${Math.min(share, 100)}%` }}
+                                                            />
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            ))}
+                                                );
+                                            })}
                                         </div>
                                     </div>
                                 </div>

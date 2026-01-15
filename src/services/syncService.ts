@@ -3,6 +3,8 @@ import { ShopifyConnector } from "@/lib/connectors/shopify";
 import { BusinessEngine } from "@/lib/engine";
 import { AlertService } from "@/services/alertService";
 
+import { decrypt } from "@/lib/crypto";
+
 export class SyncService {
 
     static async syncConnection(connectionId: string) {
@@ -12,29 +14,37 @@ export class SyncService {
             include: { organization: { include: { settings: true } } }
         });
 
-        if (!connection || !connection.accessToken || !connection.organization.settings) {
+        if (!connection || !connection.credentialsEncrypted || !connection.organization.settings) {
             throw new Error("Connection invalid or Organization settings missing.");
+        }
+
+        // Decrypt Credentials
+        let credentials: any = {};
+        try {
+            const json = decrypt(connection.credentialsEncrypted);
+            credentials = JSON.parse(json);
+        } catch (e) {
+            throw new Error("Failed to decrypt credentials.");
         }
 
         // 2. Instantiate Connector
         let connector;
-        if (connection.provider === 'shopify') {
-            const metadata = connection.metadata as any;
-            connector = new ShopifyConnector(connection.accessToken, metadata?.shop_domain);
-        } else if (connection.provider === 'google_ads') {
-            const metadata = connection.metadata as any;
-            const { GoogleAdsConnector } = await import('@/lib/connectors/googleAds');
-            connector = new GoogleAdsConnector(connection.accessToken!, metadata?.customer_id);
-        } else if (connection.provider === 'ga4') {
-            const metadata = connection.metadata as any;
-            const { GA4Connector } = await import('@/lib/connectors/ga4');
-            connector = new GA4Connector(connection.accessToken!, metadata?.property_id);
-        } else if (connection.provider === 'meta_ads') {
-            const metadata = connection.metadata as any;
-            const { MetaAdsConnector } = await import('@/lib/connectors/meta');
-            connector = new MetaAdsConnector(connection.accessToken!, metadata?.ad_account_id);
+        if (connection.provider === 'SHOPIFY') {
+            connector = new ShopifyConnector(credentials.accessToken, credentials.shopDomain);
+            /* 
+            // Comment out others until connectors are created
+            } else if (connection.provider === 'GOOGLE_ADS') {
+                const { GoogleAdsConnector } = await import('@/lib/connectors/googleAds');
+                connector = new GoogleAdsConnector(credentials.accessToken, credentials.customerId);
+            } else if (connection.provider === 'GA4') {
+                const { GA4Connector } = await import('@/lib/connectors/ga4');
+                connector = new GA4Connector(credentials.accessToken, credentials.propertyId);
+            } else if (connection.provider === 'META_ADS') {
+                const { MetaAdsConnector } = await import('@/lib/connectors/meta');
+                connector = new MetaAdsConnector(credentials.accessToken, credentials.adAccountId);
+            */
         } else {
-            throw new Error("Provider not supported yet.");
+            throw new Error(`Provider ${connection.provider} not supported yet.`);
         }
 
         // 3. Run Sync (Last 30 days default backfill)

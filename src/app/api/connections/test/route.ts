@@ -14,19 +14,29 @@ export async function POST(req: NextRequest) {
     try {
         const { provider, credentials } = await req.json();
 
-        // MOCK TESTER for Prototype Phase
-        // In real V2.6, implement individual testers per provider
-        const success = Math.random() > 0.1; // 90% success rate
+        let success = false;
+        let message = '';
+
+        if (provider === 'SHOPIFY') {
+            const { ShopifyConnector } = await import('@/lib/connectors/shopify');
+            const connector = new ShopifyConnector(credentials.accessToken, credentials.shopDomain);
+            success = await connector.validateToken();
+            message = success ? 'Connexion Shopify vérifiée.' : 'Échec authentification Shopify.';
+        } else {
+            // Mock others for now
+            success = true;
+            message = `Connexion ${provider} simulée OK.`;
+        }
 
         if (success) {
             return NextResponse.json({
                 success: true,
-                message: `Connexion ${provider} établie avec succès.`
+                message
             });
         } else {
             return NextResponse.json({
                 success: false,
-                error: "Identifiants invalides ou API injoignable."
+                error: message || "Identifiants invalides."
             }, { status: 400 });
         }
 

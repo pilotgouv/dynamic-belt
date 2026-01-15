@@ -28,10 +28,7 @@ export default function RootLayout({
       <body>
         <Providers>
           <AppProvider>
-            <Sidebar />
-            <main style={{ marginLeft: "250px", width: "calc(100% - 250px)", minHeight: "100vh", padding: "2rem" }}>
-              {children}
-            </main>
+            {children}
           </AppProvider>
         </Providers>
       </body>

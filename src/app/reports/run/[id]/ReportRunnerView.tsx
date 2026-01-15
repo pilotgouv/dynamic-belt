@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { ArrowLeft, Calendar, Download, AlertCircle, TrendingUp, Package, Trophy, AlertTriangle, Layers } from 'lucide-react';
 import Link from 'next/link';
+import { useDateRange } from '@/context/DateRangeContext';
 import {
     LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer,
     BarChart, Bar
@@ -37,10 +38,8 @@ export default function ReportRunnerView({ report, orgId }: ReportRunnerViewProp
     const isProductView = report.name.includes('Produit') || config.dimensions?.includes('product_name');
 
     // Date State
-    const [range, setRange] = useState(config.range && config.range.start ? config.range : {
-        start: new Date(new Date().setDate(new Date().getDate() - 30)).toISOString().split('T')[0],
-        end: new Date().toISOString().split('T')[0]
-    });
+    // Date State (Global)
+    const { range } = useDateRange();
 
     // Auto-run on mount & range change
     useEffect(() => {
@@ -87,29 +86,7 @@ export default function ReportRunnerView({ report, orgId }: ReportRunnerViewProp
     };
 
     // Date Presets Handler
-    const applyPreset = (days: number | 'month' | string) => {
-        const end = new Date();
-        const start = new Date();
 
-        if (days === 'month') {
-            start.setDate(1);
-        } else if (days === 'YTD') {
-            start.setMonth(0, 1);
-        } else if (days === '3M') {
-            start.setMonth(end.getMonth() - 3);
-        } else if (typeof days === 'number') {
-            start.setDate(end.getDate() - days);
-        } else {
-            // 7D default fallback if parsing fails
-            if (days === '7D') start.setDate(end.getDate() - 7);
-            if (days === '30D') start.setDate(end.getDate() - 30);
-        }
-
-        setRange({
-            start: start.toISOString().split('T')[0],
-            end: end.toISOString().split('T')[0]
-        });
-    };
 
     // --- RENDERERS ---
 
@@ -140,39 +117,7 @@ export default function ReportRunnerView({ report, orgId }: ReportRunnerViewProp
                         </p>
                     </div>
 
-                    {/* DATE CONTROLS (Finary Style) */}
-                    <div style={{ display: 'flex', alignItems: 'center', background: '#fff', padding: '4px', borderRadius: '14px', border: `1px solid ${THEME.border}`, boxShadow: THEME.shadow }}>
-                        {['7D', '30D', '3M', 'YTD'].map(d => (
-                            <button
-                                key={d}
-                                onClick={() => applyPreset(d)}
-                                style={{
-                                    padding: '8px 16px',
-                                    fontSize: '0.85rem',
-                                    fontWeight: 600,
-                                    borderRadius: '10px',
-                                    border: 'none',
-                                    background: 'transparent',
-                                    cursor: 'pointer',
-                                    color: '#666',
-                                    transition: 'all 0.2s'
-                                }}
-                                onMouseEnter={e => e.currentTarget.style.color = '#000'}
-                                onMouseLeave={e => e.currentTarget.style.color = '#666'}
-                            >
-                                {d}
-                            </button>
-                        ))}
-                        <div style={{ width: '1px', height: '20px', background: '#eee', margin: '0 8px' }}></div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '0 12px', cursor: 'pointer', position: 'relative' }}>
-                            <Calendar size={16} color={THEME.primary} />
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.85rem', fontWeight: 600 }}>
-                                <input type="date" value={range.start} onChange={e => setRange({ ...range, start: e.target.value })} style={{ border: 'none', outline: 'none', width: '90px', fontFamily: 'inherit', fontWeight: 'inherit', color: 'inherit', cursor: 'pointer' }} />
-                                <span style={{ color: '#ccc' }}>→</span>
-                                <input type="date" value={range.end} onChange={e => setRange({ ...range, end: e.target.value })} style={{ border: 'none', outline: 'none', width: '90px', fontFamily: 'inherit', fontWeight: 'inherit', color: 'inherit', cursor: 'pointer' }} />
-                            </div>
-                        </div>
-                    </div>
+                    {/* Global Date Control is now in DashboardHeader */}
                 </header>
 
                 <div style={{ position: 'relative', minHeight: '400px' }}>

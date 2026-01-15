@@ -46,7 +46,8 @@ export class SyncService {
         // 3. Run Sync (Last 30 days default backfill)
         const toDate = new Date();
         const fromDate = new Date();
-        fromDate.setDate(toDate.getDate() - 30);
+        // Executive decision: Sync 1 full year of history
+        fromDate.setFullYear(toDate.getFullYear() - 1);
 
         const result = await connector.sync(fromDate, toDate);
 

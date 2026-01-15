@@ -218,6 +218,47 @@ export default function ReportRunnerView({ report, orgId }: ReportRunnerViewProp
                                 </div>
                             )}
 
+                            {/* LAYER 2: DRIVERS (Executive View) */}
+                            {!isProductView && data.context && (
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '2rem' }}>
+                                    {/* CHANNELS DRIVER */}
+                                    <div style={{ background: THEME.card, padding: '1.5rem', borderRadius: '20px', border: `1px solid ${THEME.border}`, boxShadow: THEME.shadow }}>
+                                        <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <TrendingUp size={16} color={THEME.primary} /> Sources d'Acquisition
+                                        </h3>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                            {data.context.topChannels.map((c: any, i: number) => (
+                                                <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.9rem' }}>
+                                                    <div style={{ fontWeight: 500 }}>{c.channel || 'Direct/Unknown'}</div>
+                                                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                                                        <span style={{ color: THEME.subtext }}>{formatCurrency(c.spend)}</span>
+                                                        <span style={{ fontWeight: 600, color: c.roas > 2.5 ? THEME.success : THEME.warning }}>ROAS {c.roas.toFixed(1)}</span>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* HERO PRODUCTS DRIVER */}
+                                    <div style={{ background: THEME.card, padding: '1.5rem', borderRadius: '20px', border: `1px solid ${THEME.border}`, boxShadow: THEME.shadow }}>
+                                        <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <Package size={16} color={THEME.warning} /> Hero Products Impact
+                                        </h3>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                            {data.context.heroProducts.map((p: any, i: number) => (
+                                                <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.9rem' }}>
+                                                    <div style={{ fontWeight: 500, maxWidth: '200px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</div>
+                                                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                                                        <span style={{ fontWeight: 600 }}>{formatCurrency(p.revenue)}</span>
+                                                        <span style={{ padding: '2px 6px', background: '#FFF7ED', color: '#F59E0B', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 700 }}>{((p.revenue / (data.summary.total_revenue || 1)) * 100).toFixed(0)}%</span>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
                             {/* MAIN SPLIT: CHART + TABLE */}
                             <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '2rem' }}>
 
@@ -322,9 +363,12 @@ export default function ReportRunnerView({ report, orgId }: ReportRunnerViewProp
                                             <h3 style={{ fontSize: '1.1rem', fontWeight: 600 }}>Coach IA</h3>
                                         </div>
                                         <p style={{ fontSize: '0.95rem', opacity: 0.9, lineHeight: 1.6 }}>
-                                            {isProductView
-                                                ? "Votre 'Produit Hero' génère 40% de vos profits. Considérez augmenter le budget Ads sur ce produit spécifique pour maximiser l'échelle."
-                                                : "Votre marge nette est stable cette semaine. Attention cependant au coût d'acquisition sur Meta qui a augmenté de 12% hier."}
+                                            {data.context
+                                                ? `Focus du jour : Votre produit "${data.context.heroProducts[0]?.name}" représente ${((data.context.heroProducts[0]?.revenue / (data.summary.total_revenue || 1)) * 100).toFixed(0)}% du CA global. Côté acquisition, ${data.context.topChannels[0]?.channel} mène la marche (ROAS ${data.context.topChannels[0]?.roas.toFixed(1)}).`
+                                                : isProductView
+                                                    ? "Votre 'Produit Hero' génère une part significative des profits. Surveillez le stock."
+                                                    : "Votre marge nette est stable. Continuez à optimiser vos coûts d'acquisition."
+                                            }
                                         </p>
                                     </div>
                                     <div style={{ background: THEME.card, borderRadius: '20px', padding: '1.5rem', border: `1px solid ${THEME.border}` }}>

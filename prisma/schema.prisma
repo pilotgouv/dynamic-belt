@@ -131,7 +131,7 @@ model SyncRun {
   itemsImported Int       @default(0)
   details      String?    // JSON or text log
   connectionId String
-  connection   Connection @relation(fields: [connectionId], references: [id])
+  connection   Connection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
 }
 
 // 3. User Settings & Cost Profile

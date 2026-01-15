@@ -16,6 +16,11 @@ export async function DELETE(req: NextRequest, { params }: { params: any }) {
     }
 
     try {
+        // Manual Cascade Delete (Since Schema Push failed)
+        await prisma.syncRun.deleteMany({
+            where: { connectionId: id }
+        });
+
         await prisma.connection.delete({
             where: {
                 id,

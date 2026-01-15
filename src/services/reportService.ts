@@ -13,6 +13,7 @@ export interface ReportResult {
     series: any[];
     confidence: 'EXACT' | 'ESTIMATED' | 'INCOMPLETE';
     confidenceReasons: string[];
+    context?: any;
 }
 
 export class ReportService {
@@ -138,6 +139,39 @@ export class ReportService {
             };
         }
 
+        // Context: Top Drivers (Executive Layer 2)
+        // Fetch Top 3 Products & Channels regardless of report type
+        const topProductsRaw = await prisma.productDaily.groupBy({
+            by: ['name'],
+            where: { organizationId, date: { gte: range.start, lte: range.end } },
+            _sum: { revenue: true, unitsSold: true },
+            orderBy: { _sum: { revenue: 'desc' } },
+            take: 3
+        });
+
+        const topChannelsRaw = await prisma.adsDaily.groupBy({
+            by: ['channel'],
+            where: { organizationId, date: { gte: range.start, lte: range.end } },
+            _sum: { spend: true, conversionValue: true },
+            orderBy: { _sum: { spend: 'desc' } },
+            take: 3
+        });
+
+        const context = {
+            heroProducts: topProductsRaw.map(p => ({
+                name: p.name,
+                revenue: p._sum.revenue || 0,
+                units: p._sum.unitsSold || 0,
+                profit_estimated: (p._sum.revenue || 0) * 0.4 // Mock 40% margin
+            })),
+            topChannels: topChannelsRaw.map(c => ({
+                channel: c.channel,
+                spend: c._sum.spend || 0,
+                revenue: c._sum.conversionValue || 0,
+                roas: c._sum.spend ? (c._sum.conversionValue || 0) / c._sum.spend : 0
+            }))
+        };
+
         const series = Array.from(allDates).sort().map(dateKey => {
             // Find records matching this bucket
             // Note: This is an approximation for day bucket. For week/month we need better filtering.
@@ -188,6 +222,7 @@ export class ReportService {
                 global_margin: totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0
             },
             series,
+            context,
             confidence: 'ESTIMATED', // Logic to refine later
             confidenceReasons: ['COGS uses global estimate', 'Shipping costs averaged']
         };

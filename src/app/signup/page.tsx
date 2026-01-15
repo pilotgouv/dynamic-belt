@@ -5,6 +5,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
+import { Mail, Lock, User, ArrowRight, Loader2 } from 'lucide-react';
 
 export default function SignupPage() {
     const router = useRouter();
@@ -51,113 +52,160 @@ export default function SignupPage() {
     };
 
     return (
-        <div style={{
-            minHeight: '100vh',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: 'var(--bg)',
-            color: 'var(--text)'
-        }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', minHeight: '100vh', fontFamily: 'var(--font-sans)' }}>
+
+            {/* Left Column: Brand (Same as Login) */}
             <div style={{
-                width: '100%',
-                maxWidth: '400px',
-                padding: '2.5rem',
-                background: 'var(--surface)',
-                border: '1px solid var(--border)',
-                borderRadius: '16px',
-                boxShadow: 'var(--shadow-lg)'
+                background: 'var(--text)',
+                color: 'white',
+                padding: '4rem',
+                display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+                position: 'relative', overflow: 'hidden'
             }}>
-                <div style={{ marginBottom: '2rem', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                    <Image src="/brand/logopilot.png" alt="PILOT" width={48} height={48} style={{ marginBottom: '1rem' }} />
-                    <h1 style={{ fontSize: '1.5rem', fontWeight: 600, marginBottom: '0.2rem', color: 'var(--text)' }}>Créer un compte</h1>
-                    <p style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>Rejoignez PILOT pour piloter votre business.</p>
+                <div style={{
+                    position: 'absolute', top: '-20%', right: '-20%', width: '80%', height: '80%',
+                    background: 'radial-gradient(circle, rgba(42,124,176,0.4) 0%, rgba(14,14,29,0) 70%)',
+                    filter: 'blur(60px)', zIndex: 0
+                }} />
+
+                <div style={{ zIndex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4rem' }}>
+                        <Image src="/brand/logopilot.png" alt="PILOT" width={32} height={32} />
+                        <span style={{ fontSize: '1.2rem', fontWeight: 600, letterSpacing: '0.05em' }}>PILOT</span>
+                    </div>
                 </div>
 
-                {error && (
-                    <div style={{
-                        padding: '0.75rem',
-                        marginBottom: '1rem',
-                        background: 'rgba(220, 38, 38, 0.1)',
-                        border: '1px solid var(--danger)',
-                        color: 'var(--danger)',
-                        borderRadius: '6px',
-                        fontSize: '0.85rem', fontWeight: 500
-                    }}>
-                        {error}
-                    </div>
-                )}
+                <div style={{ zIndex: 1, maxWidth: '480px' }}>
+                    <h2 style={{ fontSize: '3rem', fontWeight: 700, lineHeight: 1.1, marginBottom: '1.5rem', background: 'linear-gradient(to right, #fff, #94a3b8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                        Start your journey.
+                    </h2>
+                    <p style={{ fontSize: '1.1rem', color: '#94a3b8', lineHeight: 1.6 }}>
+                        Create your Pilot account today and gain instant visibility into your business metrics.
+                    </p>
+                </div>
 
-                <form onSubmit={handleSubmit}>
-                    <div style={{ marginBottom: '1rem' }}>
-                        <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: '0.4rem', color: 'var(--muted)' }}>Nom complet</label>
-                        <input name="name" type="text" required
+                <div style={{ zIndex: 1, color: '#475569', fontSize: '0.9rem' }}>
+                    © 2024 Pilot Inc. All rights reserved.
+                </div>
+            </div>
+
+            {/* Right Column: Signup Form */}
+            <div style={{
+                background: 'var(--bg)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                padding: '2rem'
+            }}>
+                <div style={{ width: '100%', maxWidth: '420px' }}>
+                    <div style={{ marginBottom: '2.5rem' }}>
+                        <h1 style={{ fontSize: '1.8rem', fontWeight: 700, color: 'var(--text)', marginBottom: '0.5rem' }}>Créer un compte</h1>
+                        <p style={{ color: 'var(--muted)' }}>Commencez à piloter votre business.</p>
+                    </div>
+
+                    {error && (
+                        <div style={{
+                            padding: '1rem', marginBottom: '1.5rem', borderRadius: '8px',
+                            background: '#fee2e2', color: '#991b1b', fontSize: '0.9rem', fontWeight: 500,
+                            border: '1px solid #fecaca'
+                        }}>
+                            {error}
+                        </div>
+                    )}
+
+                    <form onSubmit={handleSubmit}>
+                        <div style={{ marginBottom: '1.25rem' }}>
+                            <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, color: 'var(--text)', marginBottom: '0.5rem' }}>Nom complet</label>
+                            <div style={{ position: 'relative' }}>
+                                <User size={18} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }} />
+                                <input
+                                    name="name" type="text" required placeholder="John Doe"
+                                    style={{
+                                        width: '100%', padding: '0.8rem 1rem 0.8rem 2.8rem',
+                                        borderRadius: '8px', border: '1px solid var(--border)',
+                                        fontSize: '1rem', color: 'var(--text)', background: 'white',
+                                        outline: 'none', transition: 'box-shadow 0.2s, border-color 0.2s'
+                                    }}
+                                    onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.boxShadow = '0 0 0 4px rgba(42, 124, 176, 0.1)'; }}
+                                    onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; }}
+                                />
+                            </div>
+                        </div>
+
+                        <div style={{ marginBottom: '1.25rem' }}>
+                            <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, color: 'var(--text)', marginBottom: '0.5rem' }}>Email professionnel</label>
+                            <div style={{ position: 'relative' }}>
+                                <Mail size={18} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }} />
+                                <input
+                                    name="email" type="email" required placeholder="name@company.com"
+                                    style={{
+                                        width: '100%', padding: '0.8rem 1rem 0.8rem 2.8rem',
+                                        borderRadius: '8px', border: '1px solid var(--border)',
+                                        fontSize: '1rem', color: 'var(--text)', background: 'white',
+                                        outline: 'none', transition: 'box-shadow 0.2s, border-color 0.2s'
+                                    }}
+                                    onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.boxShadow = '0 0 0 4px rgba(42, 124, 176, 0.1)'; }}
+                                    onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; }}
+                                />
+                            </div>
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '2rem' }}>
+                            <div>
+                                <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, color: 'var(--text)', marginBottom: '0.5rem' }}>Mot de passe</label>
+                                <div style={{ position: 'relative' }}>
+                                    <Lock size={18} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }} />
+                                    <input
+                                        name="password" type="password" required placeholder="••••••••" minLength={8}
+                                        style={{
+                                            width: '100%', padding: '0.8rem 1rem 0.8rem 2.8rem',
+                                            borderRadius: '8px', border: '1px solid var(--border)',
+                                            fontSize: '1rem', color: 'var(--text)', background: 'white',
+                                            outline: 'none', transition: 'box-shadow 0.2s, border-color 0.2s'
+                                        }}
+                                        onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.boxShadow = '0 0 0 4px rgba(42, 124, 176, 0.1)'; }}
+                                        onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; }}
+                                    />
+                                </div>
+                            </div>
+                            <div>
+                                <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, color: 'var(--text)', marginBottom: '0.5rem' }}>Confirmer</label>
+                                <div style={{ position: 'relative' }}>
+                                    <Lock size={18} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }} />
+                                    <input
+                                        name="confirm" type="password" required placeholder="••••••••" minLength={8}
+                                        style={{
+                                            width: '100%', padding: '0.8rem 1rem 0.8rem 2.8rem',
+                                            borderRadius: '8px', border: '1px solid var(--border)',
+                                            fontSize: '1rem', color: 'var(--text)', background: 'white',
+                                            outline: 'none', transition: 'box-shadow 0.2s, border-color 0.2s'
+                                        }}
+                                        onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.boxShadow = '0 0 0 4px rgba(42, 124, 176, 0.1)'; }}
+                                        onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; }}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        <button type="submit" disabled={loading}
                             style={{
-                                width: '100%', padding: '0.75rem',
-                                background: 'var(--bg)',
-                                border: '1px solid var(--border)',
-                                borderRadius: '8px', color: 'var(--text)',
-                                fontSize: '0.95rem'
+                                width: '100%', padding: '0.85rem',
+                                background: 'var(--text)', color: 'white',
+                                border: 'none', borderRadius: '8px',
+                                fontSize: '1rem', fontWeight: 600, cursor: 'pointer',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
+                                opacity: loading ? 0.7 : 1, transition: 'all 0.2s'
                             }}
-                        />
+                            onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-1px)'}
+                            onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+                        >
+                            {loading && <Loader2 size={18} className="animate-spin" />}
+                            {loading ? 'Création...' : "S'inscrire"}
+                            {!loading && <ArrowRight size={18} />}
+                        </button>
+                    </form>
+
+                    <div style={{ marginTop: '2rem', textAlign: 'center', fontSize: '0.9rem', color: 'var(--muted)' }}>
+                        Déjà un compte ? <Link href="/login" style={{ color: 'var(--primary)', fontWeight: 600, textDecoration: 'none' }}>Se connecter</Link>
                     </div>
-
-                    <div style={{ marginBottom: '1rem' }}>
-                        <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: '0.4rem', color: 'var(--muted)' }}>Email pro</label>
-                        <input name="email" type="email" required
-                            style={{
-                                width: '100%', padding: '0.75rem',
-                                background: 'var(--bg)',
-                                border: '1px solid var(--border)',
-                                borderRadius: '8px', color: 'var(--text)',
-                                fontSize: '0.95rem'
-                            }}
-                        />
-                    </div>
-
-                    <div style={{ marginBottom: '1rem' }}>
-                        <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: '0.4rem', color: 'var(--muted)' }}>Mot de passe</label>
-                        <input name="password" type="password" required minLength={8}
-                            style={{
-                                width: '100%', padding: '0.75rem',
-                                background: 'var(--bg)',
-                                border: '1px solid var(--border)',
-                                borderRadius: '8px', color: 'var(--text)',
-                                fontSize: '0.95rem'
-                            }}
-                        />
-                    </div>
-
-                    <div style={{ marginBottom: '1.5rem' }}>
-                        <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: '0.4rem', color: 'var(--muted)' }}>Confirmer</label>
-                        <input name="confirm" type="password" required minLength={8}
-                            style={{
-                                width: '100%', padding: '0.75rem',
-                                background: 'var(--bg)',
-                                border: '1px solid var(--border)',
-                                borderRadius: '8px', color: 'var(--text)',
-                                fontSize: '0.95rem'
-                            }}
-                        />
-                    </div>
-
-                    <button type="submit" disabled={loading}
-                        style={{
-                            width: '100%', padding: '0.75rem',
-                            background: 'var(--primary-gradient)',
-                            border: 'none',
-                            borderRadius: '8px', color: '#fff',
-                            fontWeight: 600, cursor: 'pointer',
-                            opacity: loading ? 0.7 : 1, transition: 'opacity 0.2s',
-                            boxShadow: 'var(--shadow-md)'
-                        }}
-                    >
-                        {loading ? 'Création...' : "S'inscrire"}
-                    </button>
-                </form>
-
-                <div style={{ marginTop: '1.5rem', textAlign: 'center', fontSize: '0.85rem', color: 'var(--muted)' }}>
-                    Déjà un compte ? <Link href="/login" style={{ color: 'var(--primary)', fontWeight: 600, textDecoration: 'none' }}>Se connecter</Link>
                 </div>
             </div>
         </div>

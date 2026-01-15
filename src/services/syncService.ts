@@ -33,18 +33,12 @@ export class SyncService {
         let connector;
         if (connection.provider === 'SHOPIFY') {
             connector = new ShopifyConnector(credentials.accessToken, credentials.shopDomain);
-            /* 
-            // Comment out others until connectors are created
-            } else if (connection.provider === 'GOOGLE_ADS') {
-                const { GoogleAdsConnector } = await import('@/lib/connectors/googleAds');
-                connector = new GoogleAdsConnector(credentials.accessToken, credentials.customerId);
-            } else if (connection.provider === 'GA4') {
-                const { GA4Connector } = await import('@/lib/connectors/ga4');
-                connector = new GA4Connector(credentials.accessToken, credentials.propertyId);
-            } else if (connection.provider === 'META_ADS') {
-                const { MetaAdsConnector } = await import('@/lib/connectors/meta');
-                connector = new MetaAdsConnector(credentials.accessToken, credentials.adAccountId);
-            */
+        } else if (connection.provider === 'WOOCOMMERCE') {
+            const { WooCommerceConnector } = await import('@/lib/connectors/woocommerce');
+            connector = new WooCommerceConnector(credentials.storeUrl, credentials.consumerKey, credentials.consumerSecret);
+        } else if (connection.provider === 'META_ADS') {
+            const { MetaAdsConnector } = await import('@/lib/connectors/meta');
+            connector = new MetaAdsConnector(credentials.accessToken, credentials.adAccountId);
         } else {
             throw new Error(`Provider ${connection.provider} not supported yet.`);
         }

@@ -10,7 +10,7 @@ export const runtime = 'nodejs';
 async function getAccountData(userId: string, orgId: string) {
     const user = await prisma.user.findUnique({
         where: { id: userId },
-        select: { email: true, name: true, createdAt: true, plan: true }
+        select: { id: true, email: true, name: true, createdAt: true, plan: true }
     });
 
     const org = await prisma.organization.findUnique({

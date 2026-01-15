@@ -123,11 +123,22 @@ export class WooCommerceConnector implements DataSourceConnector {
                         console.log(`[WooCommerce] Page ${page} received 0 orders.`);
                     }
 
+                    // Log Status Distribution
+                    const statusCounts = pageOrders.reduce((acc: any, o: any) => {
+                        acc[o.status] = (acc[o.status] || 0) + 1;
+                        return acc;
+                    }, {});
+                    console.log(`[WooCommerce] Page ${page} Statuses:`, JSON.stringify(statusCounts));
+
                     // Local Filtering: We requested ALL statuses, so we must filter now to keep only valid sales
-                    const validStatuses = ['completed', 'processing', 'on-hold', 'refunded'];
+                    // Added 'completed' explicit check just in case, though usually works.
+                    const validStatuses = ['completed', 'processing', 'on-hold', 'refunded', 'pending', 'failed', 'cancelled'];
+                    // TEMPORARY: I am opening the floodgates to ALL statuses to see what happens in the DB.
+                    // We can filter in the Dashboard later. For now, we want DATA.
+
                     const filteredOrders = pageOrders.filter((o: any) => validStatuses.includes(o.status));
 
-                    console.log(`[WooCommerce] Page ${page}: Kept ${filteredOrders.length} valid orders out of ${pageOrders.length} fetched.`);
+                    console.log(`[WooCommerce] Page ${page}: Importing ${filteredOrders.length} / ${pageOrders.length} orders (Validation relaxed).`);
 
                     allOrders.push(...filteredOrders);
 

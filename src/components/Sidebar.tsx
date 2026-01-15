@@ -27,9 +27,9 @@ const MENU_ITEMS = [
     { label: 'Performance Ads', icon: Megaphone, path: '/dashboard/ads' },
     { label: 'Trafic', icon: Users, path: '/dashboard/traffic' },
     { label: 'Produits', icon: Package, path: '/dashboard/products' },
-    { label: 'Bibliothèque', icon: FileText, path: '/reports' },
-    { label: 'Connexions', icon: LinkIcon, path: '/connections' },
-    { label: 'Mon Compte', icon: Users, path: '/account' },
+    { label: 'Bibliothèque', icon: FileText, path: '/dashboard/reports' },
+    { label: 'Connexions', icon: LinkIcon, path: '/dashboard/connections' },
+    { label: 'Mon Compte', icon: Users, path: '/dashboard/account' },
 ];
 
 export default function Sidebar() {
@@ -89,7 +89,7 @@ export default function Sidebar() {
                 </div>
 
                 <div className={styles.user}>
-                    <Link href="/account" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', textDecoration: 'none', color: 'inherit', flex: 1 }}>
+                    <Link href="/dashboard/account" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', textDecoration: 'none', color: 'inherit', flex: 1 }}>
                         <div className={styles.avatar}>M</div>
                         <div style={{ display: 'flex', flexDirection: 'column' }}>
                             <span style={{ lineHeight: 1 }}>Mon Compte</span>

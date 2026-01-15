@@ -41,7 +41,7 @@ export default async function ReportsPage() {
                     <h1 style={{ fontSize: '2rem', fontWeight: 600, marginBottom: '0.5rem' }}>Reports Library</h1>
                     <p style={{ color: 'var(--muted)' }}>Boardroom-ready intelligence summaries.</p>
                 </div>
-                <Link href="/reports/new"
+                <Link href="/dashboard/reports/new"
                     style={{
                         display: 'flex', alignItems: 'center', gap: '8px',
                         background: 'var(--primary-gradient)', color: 'white',
@@ -69,7 +69,7 @@ export default async function ReportsPage() {
                     <p style={{ color: 'var(--muted)', marginBottom: '2rem', maxWidth: '400px', margin: '0 auto 2rem' }}>
                         Create your first custom report to track the metrics that matter most to your boardroom.
                     </p>
-                    <Link href="/reports/new" style={{ color: 'var(--primary)', fontWeight: 600, textDecoration: 'none' }}>Start Builder &rarr;</Link>
+                    <Link href="/dashboard/reports/new" style={{ color: 'var(--primary)', fontWeight: 600, textDecoration: 'none' }}>Start Builder &rarr;</Link>
                 </div>
             ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '1.5rem' }}>
@@ -120,7 +120,7 @@ export default async function ReportsPage() {
                                     </div>
 
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                                        <Link href={`/reports/run/${report.id}`}
+                                        <Link href={`/dashboard/reports/run/${report.id}`}
                                             style={{
                                                 textAlign: 'center', padding: '0.6rem', borderRadius: '6px',
                                                 background: 'var(--surface-2)', color: 'var(--text)',
@@ -129,7 +129,7 @@ export default async function ReportsPage() {
                                         >
                                             View
                                         </Link>
-                                        <Link href={`/reports/edit/${report.id}`}
+                                        <Link href={`/dashboard/reports/edit/${report.id}`}
                                             style={{
                                                 textAlign: 'center', padding: '0.6rem', borderRadius: '6px',
                                                 border: '1px solid var(--border)', color: 'var(--muted)',

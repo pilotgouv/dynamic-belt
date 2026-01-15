@@ -1,6 +1,7 @@
+import Link from 'next/link'; // Ensure Link is imported if needed, or just keep existing imports
 import { auth } from '@/auth';
 import { redirect } from 'next/navigation';
-import ReportRunnerView from '../../reports/run/[id]/ReportRunnerView';
+import ReportRunnerView from '../reports/run/[id]/ReportRunnerView';
 
 export const runtime = 'nodejs';
 

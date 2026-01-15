@@ -5,7 +5,7 @@ import { ArrowLeft, Calendar, Download, AlertCircle, TrendingUp, Package, Trophy
 import Link from 'next/link';
 import { useDateRange } from '@/context/DateRangeContext';
 import {
-    LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer,
+    AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer,
     BarChart, Bar
 } from 'recharts';
 
@@ -109,9 +109,7 @@ export default function ReportRunnerView({ report, orgId }: ReportRunnerViewProp
                         <Link href="/reports" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', color: THEME.subtext, marginBottom: '0.5rem', fontSize: '0.9rem' }}>
                             <ArrowLeft size={16} /> Back to Library
                         </Link>
-                        <h1 style={{ fontSize: '2rem', fontWeight: 800, letterSpacing: '-0.03em', color: THEME.text }}>
-                            {report.name}
-                        </h1>
+                        {/* Title Removed for cleaner Global Header Integration */}
                         <p style={{ color: THEME.subtext, marginTop: '0.25rem' }}>
                             {isProductView ? 'Intelligence Produit & Rentabilité' : 'Performance Financière & Croissance'}
                         </p>
@@ -225,15 +223,25 @@ export default function ReportRunnerView({ report, orgId }: ReportRunnerViewProp
                                                     <Bar dataKey="units_sold" name="Unités" fill="#007AFF" radius={[6, 6, 0, 0]} yAxisId="right" barSize={20} />
                                                 </BarChart>
                                             ) : (
-                                                <LineChart data={data.series}>
+                                                <AreaChart data={data.series}>
+                                                    <defs>
+                                                        <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
+                                                            <stop offset="5%" stopColor="#1a1a1a" stopOpacity={0.1} />
+                                                            <stop offset="95%" stopColor="#1a1a1a" stopOpacity={0} />
+                                                        </linearGradient>
+                                                        <linearGradient id="colorProfit" x1="0" y1="0" x2="0" y2="1">
+                                                            <stop offset="5%" stopColor={THEME.success} stopOpacity={0.2} />
+                                                            <stop offset="95%" stopColor={THEME.success} stopOpacity={0} />
+                                                        </linearGradient>
+                                                    </defs>
                                                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f1f1" />
                                                     <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: THEME.subtext, fontSize: 12 }} dy={10} />
                                                     <YAxis axisLine={false} tickLine={false} tick={{ fill: THEME.subtext, fontSize: 12 }} tickFormatter={(v) => `${v / 1000}k`} />
                                                     <RechartsTooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 8px 24px rgba(0,0,0,0.12)' }} />
                                                     <Legend iconType="circle" />
-                                                    <Line type="monotone" dataKey="revenue_gross" name="Revenus" stroke="#1a1a1a" strokeWidth={3} dot={false} activeDot={{ r: 6 }} />
-                                                    <Line type="monotone" dataKey="profit_estimated" name="Profit Net" stroke={THEME.success} strokeWidth={3} dot={false} activeDot={{ r: 6 }} />
-                                                </LineChart>
+                                                    <Area type="monotone" dataKey="revenue_gross" name="Revenus" stroke="#1a1a1a" strokeWidth={3} fillOpacity={1} fill="url(#colorRev)" dot={false} activeDot={{ r: 6 }} style={{ filter: 'drop-shadow(0px 4px 6px rgba(0,0,0,0.1))' }} />
+                                                    <Area type="monotone" dataKey="profit_estimated" name="Profit Net" stroke={THEME.success} strokeWidth={3} fillOpacity={1} fill="url(#colorProfit)" dot={false} activeDot={{ r: 6 }} style={{ filter: 'drop-shadow(0px 4px 6px rgba(0,0,0,0.1))' }} />
+                                                </AreaChart>
                                             )}
                                         </ResponsiveContainer>
                                     </div>

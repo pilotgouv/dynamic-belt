@@ -139,7 +139,65 @@ export class ReportService {
             };
         }
 
-        // Context: Top Drivers (Executive Layer 2)
+        // Special Case: Channel Dimension aggregation (Ads)
+        if (config.dimensions.includes('channel')) {
+            const channelMap = new Map<string, any>();
+            adsData.forEach(a => {
+                const key = a.channel;
+                const curr = channelMap.get(key) || {
+                    channel: key, spend: 0, revenue: 0, impressions: 0, clicks: 0, conversions: 0
+                };
+                channelMap.set(key, {
+                    channel: key,
+                    spend: curr.spend + a.spend,
+                    revenue: curr.revenue + a.conversionValue,
+                    impressions: curr.impressions + a.impressions,
+                    clicks: curr.clicks + a.clicks,
+                    conversions: curr.conversions + a.conversions
+                });
+            });
+
+            const channelSeries = Array.from(channelMap.values()).map(c => {
+                // Estimate Contribution
+                // Gross Margin = Rev * (1 - (cogs% / 100))
+                const estMarginPercent = 100 - settings.costProfile.cogsEsitmatedPercent;
+                const grossMargin = c.revenue * (estMarginPercent / 100);
+                const contribution = grossMargin - c.spend;
+
+                return {
+                    date: c.channel, // Key for Table
+                    channel: c.channel,
+                    spend: c.spend,
+                    revenue: c.revenue,
+                    impressions: c.impressions,
+                    clicks: c.clicks,
+                    conversions: c.conversions,
+                    ctr: c.impressions > 0 ? (c.clicks / c.impressions) * 100 : 0,
+                    cpc: c.clicks > 0 ? c.spend / c.clicks : 0,
+                    roas: c.spend > 0 ? c.revenue / c.spend : 0,
+                    cpa: c.conversions > 0 ? c.spend / c.conversions : 0,
+                    contribution: contribution, // "Profit" contribution
+                    contribution_margin: c.revenue > 0 ? (contribution / c.revenue) * 100 : 0
+                };
+            }).sort((a, b) => b.spend - a.spend);
+
+            // Summaries for Channels
+            const totalSpend = channelSeries.reduce((a, b) => a + b.spend, 0);
+            const totalRev = channelSeries.reduce((a, b) => a + b.revenue, 0);
+            const totalContrib = channelSeries.reduce((a, b) => a + b.contribution, 0);
+
+            return {
+                summary: {
+                    total_revenue: totalRev,
+                    total_spend: totalSpend,
+                    total_profit: totalContrib, // Contextual profit
+                    roas: totalSpend > 0 ? totalRev / totalSpend : 0
+                },
+                series: channelSeries,
+                confidence: 'ESTIMATED',
+                confidenceReasons: ['Contribution uses global COGS estimate']
+            };
+        }
         // Fetch Top 3 Products & Channels regardless of report type
         const topProductsRaw = await prisma.productDaily.groupBy({
             by: ['name', 'sku'],
@@ -214,13 +272,27 @@ export class ReportService {
         const totalRevenue = series.reduce((a, b) => a + b.revenue_gross, 0);
         const totalSpend = series.reduce((a, b) => a + b.spend, 0);
         const totalProfit = series.reduce((a, b) => a + (b.profit_estimated || 0), 0);
+        const globalMargin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
+        const globalRoas = totalSpend > 0 ? totalRevenue / totalSpend : 0;
+
+        // Calculate PILOT Score
+        const pilotHealth = BusinessEngine.calculateHealthScore({
+            marginPercent: globalMargin,
+            roas: globalRoas,
+            profit: totalProfit,
+            spend: totalSpend
+        }, settings.targets);
 
         return {
             summary: {
                 total_revenue: totalRevenue,
                 total_spend: totalSpend,
                 total_profit: totalProfit,
-                global_margin: totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0
+                global_margin: globalMargin,
+                roas: globalRoas,
+                pilot_score: pilotHealth.score,
+                pilot_status: pilotHealth.status,
+                pilot_components: pilotHealth.components
             },
             series,
             context,

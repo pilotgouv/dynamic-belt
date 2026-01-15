@@ -137,4 +137,58 @@ export class BusinessEngine {
     static formatCurrency(amount: number, currency: string = 'EUR'): string {
         return new Intl.NumberFormat('fr-FR', { style: 'currency', currency }).format(amount);
     }
+
+    /**
+     * V6.0 - PILOT Score Engine
+     * Calculates the global health score (0-100) based on weighted finance and acquisition metrics.
+     */
+    static calculateHealthScore(
+        metrics: { marginPercent: number, roas: number, profit: number, spend: number },
+        targets: UserSettings['targets']
+    ): { score: number, status: 'Excellent' | 'Good' | 'Fair' | 'Critical', components: any } {
+
+        // 1. Margin Score (Weight 40%)
+        // If Margin >= Target, Score = 100. Else linear decay.
+        // If Margin < 0, Score = 0.
+        let marginScore = 0;
+        if (metrics.marginPercent >= targets.minMargin) marginScore = 100;
+        else if (metrics.marginPercent > 0) marginScore = (metrics.marginPercent / targets.minMargin) * 100;
+        else marginScore = 0; // Negative margin penalty
+
+        // 2. ROAS Score (Weight 40%)
+        // If Spend == 0, we assume "Organic Mode" -> if Profitable, ROAS Score = 100 (Maximum Efficiency).
+        let roasScore = 0;
+        if (metrics.spend === 0) {
+            roasScore = 100;
+        } else {
+            if (metrics.roas >= targets.minRoas) roasScore = 100;
+            else roasScore = (metrics.roas / targets.minRoas) * 100;
+        }
+
+        // 3. Profitability Bonus (Weight 20%)
+        // Simple binary: Making money = 100, Losing money = 0.
+        const profitScore = metrics.profit > 0 ? 100 : 0;
+
+        // Weighted Average
+        // If Spend > 0: 40% Margin, 40% ROAS, 20% Profit
+        // If Spend == 0: 60% Margin, 40% Profit (No ROAS component effectively 100 makes sense but weighting changes)
+        // Let's keep consistent weights for simplicity V1.
+        const totalScore = Math.round((marginScore * 0.4) + (roasScore * 0.4) + (profitScore * 0.2));
+
+        let status: 'Excellent' | 'Good' | 'Fair' | 'Critical' = 'Fair';
+        if (totalScore >= 90) status = 'Excellent';
+        else if (totalScore >= 70) status = 'Good';
+        else if (totalScore >= 50) status = 'Fair';
+        else status = 'Critical';
+
+        return {
+            score: totalScore,
+            status,
+            components: {
+                margin: Math.round(marginScore),
+                roas: Math.round(roasScore),
+                profit: Math.round(profitScore)
+            }
+        };
+    }
 }

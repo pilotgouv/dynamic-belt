@@ -71,9 +71,9 @@ export default function Sidebar() {
                             if (isSyncing) return;
                             setIsSyncing(true);
                             try {
-                                const res = await fetch('/api/sync', { method: 'POST', body: JSON.stringify({}) });
+                                const res = await fetch('/api/sync', { method: 'POST', body: JSON.stringify({ fullSync: true }) });
                                 if (res.ok) {
-                                    alert("Données synchronisées avec succès. La page va se recharger.");
+                                    alert("Synchronisation complète lancée (Historique > 2020). La page va se recharger.");
                                     window.location.reload();
                                 } else {
                                     alert("Erreur lors de la synchronisation.");

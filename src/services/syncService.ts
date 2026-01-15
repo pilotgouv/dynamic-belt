@@ -6,7 +6,7 @@ import { ConnectionService } from "@/lib/connections/connection-service";
 
 export class SyncService {
 
-    static async syncConnection(connectionId: string, connectionEntity?: any) {
+    static async syncConnection(connectionId: string, connectionEntity?: any, options: { fullSync?: boolean } = {}) {
         // 1. Fetch Connection Details (if not provided)
         let connection = connectionEntity;
         if (!connection) {
@@ -48,7 +48,7 @@ export class SyncService {
         let fromDate = new Date();
 
         // Phase 3.1: True Incremental Sync
-        if (connection.lastSyncAt && connection.lastSyncStatus === 'success') {
+        if (!options.fullSync && connection.lastSyncAt && connection.lastSyncStatus === 'success') {
             fromDate = new Date(connection.lastSyncAt);
             // Safety: Go back 1 hour to ensure no overlap/gaps
             fromDate.setHours(fromDate.getHours() - 1);
@@ -56,7 +56,7 @@ export class SyncService {
         } else {
             // Phase 3.1: Full Historical Sync (First run or after error)
             fromDate.setFullYear(2020, 0, 1);
-            console.log(`Starting Full Historical Sync from ${fromDate.toISOString()}`);
+            console.log(`Starting Full Historical Sync from ${fromDate.toISOString()} (Forced: ${!!options.fullSync})`);
         }
 
         const result = await connector.sync(fromDate, toDate);

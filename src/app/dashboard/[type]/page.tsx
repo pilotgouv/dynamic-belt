@@ -1,53 +1,13 @@
-import Link from 'next/link'; // Ensure Link is imported if needed, or just keep existing imports
+import Link from 'next/link';
 import { auth } from '@/auth';
 import { redirect } from 'next/navigation';
-import ReportRunnerView from '../reports/run/[id]/ReportRunnerView';
+import OverviewView from '@/components/dashboard-views/OverviewView';
+import ProductsView from '@/components/dashboard-views/ProductsView';
+import FinanceView from '@/components/dashboard-views/FinanceView';
+import AdsView from '@/components/dashboard-views/AdsView';
+import TrafficView from '@/components/dashboard-views/TrafficView';
 
 export const runtime = 'nodejs';
-
-// Predefined Definitions for "Standard" Dashboards
-const DASHBOARD_PRESETS: any = {
-    overview: {
-        name: "Vue d'ensemble",
-        config: {
-            metrics: ["revenue", "profit", "spend", "margin"],
-            dimensions: ["date"],
-            range: { start: null, end: null, period: 'last_30_days' } // dynamic handling in client
-        }
-    },
-    finance: {
-        name: "Finance",
-        config: {
-            metrics: ["revenue_gross", "revenue_net", "refunds", "cogs", "fees"],
-            dimensions: ["date"],
-            range: { start: null, end: null, period: 'last_30_days' }
-        }
-    },
-    ads: {
-        name: "Performance Ads",
-        config: {
-            metrics: ["spend", "impressions", "clicks", "roas", "cpa"],
-            dimensions: ["channel", "date"],
-            range: { start: null, end: null, period: 'last_30_days' }
-        }
-    },
-    traffic: {
-        name: "Trafic",
-        config: {
-            metrics: ["sessions", "users", "conversion_rate", "revenue_per_session"],
-            dimensions: ["source", "medium"],
-            range: { start: null, end: null, period: 'last_30_days' }
-        }
-    },
-    products: {
-        name: "Produits",
-        config: {
-            metrics: ["units_sold", "revenue"],
-            dimensions: ["product_name"],
-            range: { start: null, end: null, period: 'last_30_days' }
-        }
-    }
-};
 
 export default async function DashboardPage(props: { params: Promise<{ type: string }> }) {
     const params = await props.params;
@@ -57,18 +17,13 @@ export default async function DashboardPage(props: { params: Promise<{ type: str
     const orgId = (session.user as any).organizationId;
     const type = params.type || 'overview';
 
-    // Fallback to overview if invalid type
-    const preset = DASHBOARD_PRESETS[type] || DASHBOARD_PRESETS.overview;
+    // 1. Specialized Views (Boardroom V4)
+    if (type === 'overview') return <OverviewView orgId={orgId} />;
+    if (type === 'products') return <ProductsView orgId={orgId} />;
+    if (type === 'finance') return <FinanceView orgId={orgId} />;
+    if (type === 'ads') return <AdsView orgId={orgId} />;
+    if (type === 'traffic') return <TrafficView orgId={orgId} />;
 
-    // Construct a "Virtual" Report object
-    const virtualReport = {
-        id: null, // Ephemeral
-        name: preset.name,
-        config: preset.config,
-        organizationId: orgId
-    };
-
-    return (
-        <ReportRunnerView report={virtualReport} orgId={orgId} />
-    );
+    // 2. Default Fallback
+    return <OverviewView orgId={orgId} />;
 }

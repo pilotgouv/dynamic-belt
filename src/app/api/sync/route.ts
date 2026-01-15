@@ -14,13 +14,14 @@ export async function POST(req: Request) {
 
     try {
         const body = await req.json();
-        const { connectionId } = body;
+        const { connectionId, type } = body;
         const orgId = (session.user as any).organizationId;
+        const isFullSync = type === 'full' || body.fullSync === true;
 
         if (connectionId) {
             // Single Sync
             // Verify ownership
-            const output = await SyncService.syncConnection(connectionId);
+            const output = await SyncService.syncConnection(connectionId, undefined, { fullSync: isFullSync });
             return NextResponse.json({ success: true, result: output });
         } else {
             // Sync All Active
@@ -30,7 +31,7 @@ export async function POST(req: Request) {
             const results = [];
             for (const conn of activeConnections) {
                 try {
-                    const res = await SyncService.syncConnection(conn.id, conn);
+                    const res = await SyncService.syncConnection(conn.id, conn, { fullSync: isFullSync });
                     results.push({
                         provider: conn.provider,
                         success: res.success,

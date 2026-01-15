@@ -1,9 +1,23 @@
 'use client';
 import { useDateRange, DatePeriod } from '@/context/DateRangeContext';
+import { usePathname } from 'next/navigation';
 import { Calendar } from 'lucide-react';
 
 export default function DashboardHeader() {
     const { range, setPeriod, setCustomRange } = useDateRange();
+    const pathname = usePathname();
+
+    const getTitle = () => {
+        if (pathname.includes('/overview')) return "Vue d'ensemble";
+        if (pathname.includes('/finance')) return "Finance";
+        if (pathname.includes('/ads')) return "Performance Ads";
+        if (pathname.includes('/traffic')) return "Trafic";
+        if (pathname.includes('/products')) return "Produits";
+        if (pathname.includes('/reports')) return "Bibliothèque";
+        if (pathname.includes('/connections')) return "Connexions";
+        if (pathname.includes('/account')) return "Mon Compte";
+        return "Business Cockpit";
+    };
 
     const options: { label: string, value: DatePeriod }[] = [
         { label: '7J', value: 'last_7_days' },
@@ -16,9 +30,10 @@ export default function DashboardHeader() {
 
     return (
         <header className="fixed top-0 right-0 left-[250px] z-40 bg-white/80 backdrop-blur-md border-b border-gray-100 h-16 px-8 flex items-center justify-between">
-            {/* Left: Breadcrumb or Title (optional) */}
-            <div className="flex items-center gap-2 text-sm text-gray-400 font-medium">
-                <span>Business Cockpit</span>
+            {/* Left: Breadcrumb or Title */}
+            <div className="flex flex-col justify-center">
+                <span className="text-xs text-gray-400 font-medium uppercase tracking-wider">Dashboard</span>
+                <span className="text-lg font-bold text-gray-900 tracking-tight leading-none">{getTitle()}</span>
             </div>
 
             {/* Right: Date Picker */}

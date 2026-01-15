@@ -45,6 +45,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     pages: {
         signIn: '/login',
     },
+    debug: process.env.NODE_ENV !== 'production',
+    trustHost: true,
     callbacks: {
         async session({ session, token }: any) {
             if (token) {

@@ -66,26 +66,25 @@ export class WooCommerceConnector implements DataSourceConnector {
                     per_page: '100',
                     page: page.toString(),
                     order: isDeepSync ? 'asc' : 'desc',
-                    orderby: isDeepSync ? 'id' : 'date', // ID is indestructible for history
-                    status: 'any'
+                    orderby: 'date' // Using date as requested for deep sync
+                    // NO STATUS param at all (Fetch everything: cancelled, failed, etc.)
                 };
 
-                // Only use date filters for Incremental (recent) sync
+                // Date Filters: 
+                // Deep Sync: NO FILTERS. Fetch all history from page 1.
+                // Incremental: Use 'after' (and 'before' if needed) to target recent window.
                 if (!isDeepSync) {
+                    // Format: YYYY-MM-DDTHH:mm:ss
                     queryParams.after = fromDate.toISOString().split('.')[0];
-                } else {
-                    // Deep Sync: No 'after'. We rely on orderby=id asc to get everything from #1.
                 }
 
-                // Only use 'before' for Incremental mode to cap the window.
-                if (!isDeepSync) {
-                    queryParams.before = toDate.toISOString().split('.')[0];
-                }
+                // Remove 'before' to avoid potential cutoff issues even in Incremental, unless necessary.
+                // queryParams.before = ... (Removed for safety)
 
                 const params = new URLSearchParams(queryParams);
                 const url = `${this.storeUrl}/wp-json/wc/v3/orders?${params.toString()}`;
 
-                console.log(`[WooCommerce] Fetching Page ${page}. Mode: ${isDeepSync ? 'DEEP (ID)' : 'INC (Date)'}. Url: ${url}`);
+                console.log(`[WooCommerce] Fetching Page ${page}. Mode: ${isDeepSync ? 'DEEP' : 'INC'}. Url: ${url}`);
 
                 // Retry logic
                 let res;
@@ -124,9 +123,11 @@ export class WooCommerceConnector implements DataSourceConnector {
                         console.log(`[WooCommerce] Page ${page} received 0 orders.`);
                     }
 
-                    // Local Filtering for Status
+                    // Local Filtering: We requested ALL statuses, so we must filter now to keep only valid sales
                     const validStatuses = ['completed', 'processing', 'on-hold', 'refunded'];
                     const filteredOrders = pageOrders.filter((o: any) => validStatuses.includes(o.status));
+
+                    console.log(`[WooCommerce] Page ${page}: Kept ${filteredOrders.length} valid orders out of ${pageOrders.length} fetched.`);
 
                     allOrders.push(...filteredOrders);
 

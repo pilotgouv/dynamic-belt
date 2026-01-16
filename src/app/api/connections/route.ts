@@ -48,26 +48,8 @@ export async function POST(req: NextRequest) {
 
         // Plan Logic: Check Active Count
         // We count ACTIVE connections. If creating a new one makes it > limit, block.
-        if (plan === 'free') {
-            const activeCount = await prisma.connection.count({
-                where: {
-                    organizationId: orgId,
-                    status: 'ACTIVE'
-                }
-            });
-
-            // Allow creating if 0 active, or if strictly less than 1 (which means 0)
-            // If they have 1 active, they cannot make another ACTIVE one.
-            // We assume new connection starts as ACTIVE after test? Or DISABLED then Test -> Active.
-            // Let's stricter: Free cannot have > 1 connection AT ALL to simplify UI.
-            const totalCount = await prisma.connection.count({ where: { organizationId: orgId } });
-            if (totalCount >= 1) {
-                return NextResponse.json({
-                    error: "Plan Gratuit limité à 1 connexion.",
-                    code: "PLAN_LIMIT_CONNECTIONS"
-                }, { status: 403 });
-            }
-        }
+        // Limit Check Removed - Unlimited Connections for everyone now.
+        // if (plan === 'free') { ... }
 
         const encrypted = encrypt(JSON.stringify(credentials));
 

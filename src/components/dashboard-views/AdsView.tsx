@@ -5,6 +5,7 @@ import { useDateRange } from '@/context/DateRangeContext';
 import { KPICard } from '@/components/ui/KPICard';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Megaphone, Loader2, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, ReferenceLine } from 'recharts';
 
 interface AdsViewProps {
     orgId: string;
@@ -77,6 +78,50 @@ export default function AdsView({ orgId }: AdsViewProps) {
                 <KPICard title="Marge / Pubs %" value={(summary.total_profit && summary.total_revenue) ? ((summary.total_profit / summary.total_revenue) * 100).toFixed(1) : '-'} suffix="%" loading={loading} />
             </div>
 
+            {/* Charts Row */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 h-[350px]">
+                {/* Spend Breakdown */}
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 flex flex-col">
+                    <h3 className="font-bold text-gray-900 mb-4">Répartition des Dépenses</h3>
+                    <div className="flex-1 w-full min-h-0">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={chartData} layout="vertical" margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
+                                <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f0f0f0" />
+                                <XAxis type="number" tickFormatter={(val) => `€${val}`} hide />
+                                <YAxis type="category" dataKey="channel" width={80} tickFormatter={(val) => val.replace(/_/g, ' ')} tick={{ fontSize: 12 }} />
+                                <Tooltip formatter={(value: any) => formatCurrency(Number(value) || 0)} />
+                                <Bar dataKey="spend" fill="#ef4444" radius={[0, 4, 4, 0]} name="Dépenses" barSize={32}>
+                                    {chartData.map((entry: any, index: number) => (
+                                        <Cell key={`cell-${index}`} fill={['#3b82f6', '#ef4444', '#f59e0b', '#10b981'][index % 4]} />
+                                    ))}
+                                </Bar>
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+
+                {/* ROAS Comparison */}
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 flex flex-col">
+                    <h3 className="font-bold text-gray-900 mb-4">Comparatif ROAS</h3>
+                    <div className="flex-1 w-full min-h-0">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                                <XAxis dataKey="channel" tickFormatter={(val) => val.replace(/_/g, ' ')} tick={{ fontSize: 12 }} />
+                                <YAxis tickFormatter={(val) => `${val}x`} />
+                                <Tooltip formatter={(value: any) => `${Number(value).toFixed(2)}x`} />
+                                <ReferenceLine y={2.5} stroke="green" strokeDasharray="3 3" label={{ position: 'top', value: 'Target 2.5x', fill: 'green', fontSize: 10 }} />
+                                <Bar dataKey="roas" fill="#3b82f6" radius={[4, 4, 0, 0]} name="ROAS" barSize={48}>
+                                    {chartData.map((entry: any, index: number) => (
+                                        <Cell key={`cell-${index}`} fill={entry.roas > 2.5 ? '#10b981' : entry.roas > 1.5 ? '#f59e0b' : '#ef4444'} />
+                                    ))}
+                                </Bar>
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+            </div>
+
             {/* Deep Table: Channel Performance */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
                 <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
@@ -128,8 +173,8 @@ export default function AdsView({ orgId }: AdsViewProps) {
                                     </td>
                                     <td className="px-6 py-4">
                                         <span className={`px-2 py-1 rounded text-xs font-bold ${row.contribution_margin >= 30 ? 'bg-green-100 text-green-700' :
-                                                row.contribution_margin > 0 ? 'bg-yellow-100 text-yellow-700' :
-                                                    'bg-red-100 text-red-700'
+                                            row.contribution_margin > 0 ? 'bg-yellow-100 text-yellow-700' :
+                                                'bg-red-100 text-red-700'
                                             }`}>
                                             {row.contribution_margin.toFixed(1)}%
                                         </span>

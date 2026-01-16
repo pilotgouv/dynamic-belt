@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useEffect, useState } from 'react';
@@ -5,8 +6,9 @@ import { useDateRange } from '@/context/DateRangeContext';
 import { KPICard } from '@/components/ui/KPICard';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { Loader2, TrendingUp, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Loader2, TrendingUp, AlertTriangle } from 'lucide-react';
 import { PilotScoreCard } from '@/components/PilotScoreCard';
+import AICoachWidget from '@/components/AICoachWidget';
 
 interface OverviewViewProps {
     orgId: string;
@@ -34,7 +36,7 @@ export default function OverviewView({ orgId }: OverviewViewProps) {
                         organizationId: orgId,
                         config: {
                             metrics: ["revenue", "profit", "spend", "margin_percent"],
-                            dimensions: ["date"],
+                            dimensions: ["date"], // Simplified: just daily breakdown for chart
                         },
                         range: range
                     }),
@@ -68,7 +70,6 @@ export default function OverviewView({ orgId }: OverviewViewProps) {
 
     // Formatters
     const formatCurrency = (val: number) => new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', minimumFractionDigits: 0 }).format(val);
-    const formatPercent = (val: number) => new Intl.NumberFormat('fr-FR', { style: 'percent', minimumFractionDigits: 1 }).format(val / 100);
 
     if (error) {
         return (
@@ -85,9 +86,6 @@ export default function OverviewView({ orgId }: OverviewViewProps) {
     const summary = data?.summary || {};
     const chartData = data?.series || [];
 
-    // Calculate Trend/Delta (Mocked)
-    // To do real delta, we'd need to fetch Previous Range too.
-
     if (!loading && chartData.length === 0) {
         return (
             <div className="p-8 max-w-[1600px] mx-auto animate-in fade-in duration-500">
@@ -96,7 +94,7 @@ export default function OverviewView({ orgId }: OverviewViewProps) {
                     message="La Vue d'ensemble consolide profit, coûts et risques en une seule vue exécutive. Une fois vos données synchronisées, PILOT révélera ce qui pilote réellement votre performance."
                     actionLabel="Synchroniser les données"
                     actionUrl="/dashboard/connections"
-                    secondaryText="L'historique complet est pris en charge (Tout, Année, Personnalisé)."
+                    secondaryText="L'historique complet est pris en charge."
                 />
             </div>
         );
@@ -105,10 +103,14 @@ export default function OverviewView({ orgId }: OverviewViewProps) {
     return (
         <div className="p-8 max-w-[1600px] mx-auto space-y-8 animate-in fade-in duration-500">
 
-            {/* ROW A: PILOT Score & Drivers */}
-            {/* ROW A: PILOT Score (V2.5 Exact) */}
-            <div className="w-full">
-                <PilotScoreCard />
+            {/* ROW A: PILOT Score & AI Coach */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2">
+                    <PilotScoreCard />
+                </div>
+                <div className="lg:col-span-1">
+                    <AICoachWidget orgId={orgId} />
+                </div>
             </div>
 
             {/* ROW B: KPI Cards */}
@@ -137,9 +139,9 @@ export default function OverviewView({ orgId }: OverviewViewProps) {
                 />
             </div>
 
-            {/* ROW C: Charts & Assistant */}
-            <div className="grid grid-cols-12 gap-6 h-[450px]">
-                <div className="col-span-12 md:col-span-8 bg-white rounded-2xl p-6 border border-gray-100 shadow-[0_2px_10px_rgba(0,0,0,0.02)] flex flex-col">
+            {/* ROW C: Charts (Financial Trend) */}
+            <div className="grid grid-cols-12 gap-6 h-[400px]">
+                <div className="col-span-12 bg-white rounded-2xl p-6 border border-gray-100 shadow-[0_2px_10px_rgba(0,0,0,0.02)] flex flex-col">
                     <div className="flex justify-between items-center mb-6">
                         <h3 className="text-sm font-bold text-gray-900">Tendance Financière</h3>
                         <div className="flex items-center gap-4 text-xs">
@@ -207,42 +209,8 @@ export default function OverviewView({ orgId }: OverviewViewProps) {
                         )}
                     </div>
                 </div>
-
-                <div className="col-span-12 md:col-span-4 flex flex-col gap-6">
-                    {/* AI Coach */}
-                    <div className="flex-1 bg-gradient-to-br from-indigo-50/50 to-white rounded-2xl p-6 border border-indigo-100 shadow-[0_4px_20px_rgba(0,0,0,0.02)] relative">
-                        <div className="absolute top-4 right-4">
-                            <BotIcon />
-                        </div>
-                        <h3 className="text-sm font-bold text-indigo-900 mb-3">Coach IA</h3>
-                        <p className="text-sm text-indigo-800 leading-relaxed font-medium">
-                            {summary.profit > 0
-                                ? "La rentabilité est positive. C'est le moment d'accélérer sur vos produits Hero pour maximiser la marge nette."
-                                : "Attention, la rentabilité est sous pression. Analysez vos coûts publicitaires et vérifiez vos marges produits."}
-                        </p>
-                        <button className="mt-4 text-xs font-bold text-indigo-600 hover:text-indigo-800 uppercase tracking-wide">
-                            Voir détails →
-                        </button>
-                    </div>
-
-                    {/* Alerts (Placeholder) */}
-                    <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm h-1/2">
-                        <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
-                            <AlertTriangle size={14} className="text-gray-400" /> Alertes
-                        </h3>
-                        <div className="text-xs text-gray-500 italic">Aucune alerte critique.</div>
-                    </div>
-                </div>
             </div>
 
         </div>
     );
-}
-
-function BotIcon() {
-    return (
-        <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2 2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Z" /><path d="m8 6 4-4 4 4" /><path d="M12 18v6" /><path d="M19.07 4.93 22 2" /><path d="m2 2 2.93 2.93" /><path d="M12 12v6" /><circle cx="12" cy="12" r="9" /></svg>
-        </div>
-    )
 }

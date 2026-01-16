@@ -1,8 +1,9 @@
+
 import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
 import { redirect } from 'next/navigation';
 import Image from 'next/image';
-import { LogOut, CreditCard, Shield, Activity, HardDrive, Smartphone, ChevronDown, ChevronUp } from 'lucide-react';
+import { LogOut, CreditCard, Shield, Activity, HardDrive, Smartphone, CheckCircle, Zap } from 'lucide-react';
 import Link from 'next/link';
 import DangerZoneClient from '@/components/account/DangerZoneClient';
 
@@ -19,11 +20,9 @@ async function getAccountData(userId: string, orgId: string) {
         select: { id: true, name: true, plan: true, createdAt: true }
     });
 
-    // Usage Counts
-    const reportsCount = await prisma.reportDefinition.count({ where: { organizationId: orgId } });
     const connectionsCount = await prisma.connection.count({ where: { organizationId: orgId } });
 
-    return { user, org, usage: { reports: reportsCount, connections: connectionsCount } };
+    return { user, org, connectionsCount };
 }
 
 export default async function AccountPage() {
@@ -33,253 +32,143 @@ export default async function AccountPage() {
     const userId = session.user.id as string;
     const orgId = (session.user as any).organizationId as string;
 
-    const { user, org, usage } = await getAccountData(userId, orgId);
+    const { user, org, connectionsCount } = await getAccountData(userId, orgId);
 
     if (!user || !org) return <div>Error loading account.</div>;
 
-    const isPremium = user.plan === 'premium' || org.plan === 'premium';
-
-    // Limits (Hardcoded based on plan for now, could be in DB)
-    const LIMITS = {
-        free: { reports: 1, connections: 1 },
-        premium: { reports: 100, connections: 20 }
-    };
-    const currentLimits = isPremium ? LIMITS.premium : LIMITS.free;
+    const isPremium = true; // Force visual premium for everyone as requested "multi-connexion pour tout le monde"
 
     return (
         <div style={{
             minHeight: '100vh',
-            background: 'var(--bg)', // Should be white/light per spec
+            background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
             padding: '4rem 2rem',
             fontFamily: 'var(--font-sans)',
-            color: 'var(--text)'
+            color: '#1e293b'
         }}>
 
-            <div style={{ maxWidth: '900px', margin: '0 auto' }}>
+            <div style={{ maxWidth: '800px', margin: '0 auto' }}>
 
-                {/* Header */}
-                <div style={{ textAlign: 'center', marginBottom: '4rem' }}>
-                    <Image
-                        src="/brand/logopilot.png"
-                        alt="PILOT"
-                        width={64}
-                        height={64}
-                        style={{ marginBottom: '1.5rem', borderRadius: '12px' }} // Optional slight rounding
-                    />
-                    <h1 style={{ fontSize: '2.5rem', fontWeight: 700, letterSpacing: '-0.02em', marginBottom: '0.5rem' }}>Personal Account</h1>
-                    <p style={{ color: 'var(--muted)', fontSize: '1.1rem' }}>Manage your profile and subscription.</p>
+                {/* ID CARD HEADER */}
+                <div className="bg-white rounded-3xl shadow-xl overflow-hidden border border-white/50 mb-8 relative">
+                    <div className="h-32 bg-gradient-to-r from-indigo-600 to-blue-600"></div>
+                    <div className="px-8 pb-8 relative">
+                        <div className="absolute -top-16 left-8 p-1 bg-white rounded-2xl shadow-lg">
+                            <div className="w-32 h-32 bg-indigo-100 rounded-xl flex items-center justify-center text-4xl font-bold text-indigo-600">
+                                {user.name ? user.name.charAt(0).toUpperCase() : 'P'}
+                            </div>
+                        </div>
+
+                        <div className="ml-44 pt-4 flex justify-between items-start">
+                            <div>
+                                <h1 className="text-3xl font-bold text-gray-900">{user.name}</h1>
+                                <div className="text-gray-500 font-medium flex items-center gap-2 mt-1">
+                                    <Shield size={16} className="text-indigo-500" />
+                                    {org.name}
+                                </div>
+                            </div>
+                            <div className="bg-black text-white px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest flex items-center gap-2 shadow-lg glow">
+                                <Zap size={12} className="text-yellow-400 fill-yellow-400" />
+                                Pilote Certifié
+                            </div>
+                        </div>
+
+                        <div className="mt-8 flex gap-8 border-t border-gray-100 pt-8">
+                            <div>
+                                <div className="text-xs text-gray-400 uppercase tracking-wider font-bold mb-1">Email</div>
+                                <div className="font-medium text-gray-900">{user.email}</div>
+                            </div>
+                            <div>
+                                <div className="text-xs text-gray-400 uppercase tracking-wider font-bold mb-1">Plan</div>
+                                <div className="font-medium text-indigo-600 font-bold">Unlimited Access</div>
+                            </div>
+                            <div>
+                                <div className="text-xs text-gray-400 uppercase tracking-wider font-bold mb-1">Membre depuis</div>
+                                <div className="font-medium text-gray-900">{new Date(user.createdAt).toLocaleDateString()}</div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
-                {/* Section: Profile */}
-                <section style={sectionStyle}>
-                    <h2 style={sectionHeaderStyle}>Profile</h2>
-
-                    <div style={rowStyle}>
-                        <div style={labelStyle}>Full Name</div>
-                        <div style={valueStyle}>{user.name || 'No name set'}</div>
-                    </div>
-                    <div style={dividerStyle} />
-
-                    <div style={rowStyle}>
-                        <div style={labelStyle}>Email Address</div>
-                        <div style={valueStyle}>{user.email}</div>
-                    </div>
-                    <div style={dividerStyle} />
-
-                    <div style={rowStyle}>
-                        <div style={labelStyle}>Organization</div>
-                        <div style={{ ...valueStyle, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <div style={{ width: '8px', height: '8px', background: 'var(--primary)', borderRadius: '50%' }} />
-                            {org.name}
+                {/* STATUS GRID */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                    {/* Connection Status */}
+                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+                        <div className="flex justify-between items-start mb-4">
+                            <div className="p-3 bg-green-50 rounded-xl text-green-600">
+                                <Activity size={24} />
+                            </div>
+                            <span className="bg-green-100 text-green-700 text-[10px] font-bold px-2 py-1 rounded-full">ACTIF</span>
+                        </div>
+                        <h3 className="text-lg font-bold text-gray-900 mb-1">Connexions</h3>
+                        <p className="text-gray-500 text-sm mb-4">Sources de données synchronisées</p>
+                        <div className="flex items-end gap-2">
+                            <span className="text-4xl font-bold text-gray-900">{connectionsCount}</span>
+                            <span className="text-sm text-gray-400 mb-1 font-medium">/ Illimité</span>
+                        </div>
+                        <div className="mt-3 w-full bg-gray-100 h-2 rounded-full overflow-hidden">
+                            <div className="h-full bg-green-500 w-full animate-pulse"></div>
                         </div>
                     </div>
-                </section>
 
-                {/* Section: Subscription */}
-                <section style={sectionStyle}>
-                    <div style={{ ...sectionHeaderStyle, display: 'flex', justifyContent: 'space-between' }}>
-                        <span>Subscription</span>
-                        <span style={{
-                            fontSize: '0.8rem', fontWeight: 600,
-                            padding: '4px 12px', borderRadius: '20px',
-                            background: isPremium ? 'var(--text)' : '#f1f5f9',
-                            color: isPremium ? 'white' : '#64748b'
-                        }}>
-                            {isPremium ? 'PREMIUM' : 'FREE PLAN'}
-                        </span>
-                    </div>
-
-                    <div style={{ padding: '1.5rem' }}>
-                        <div style={{ marginBottom: '2rem' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: 500 }}>
-                                <span>Active Reports</span>
-                                <span style={{ color: 'var(--muted)' }}>{usage.reports} / {currentLimits.reports}</span>
+                    {/* Security Status */}
+                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+                        <div className="flex justify-between items-start mb-4">
+                            <div className="p-3 bg-blue-50 rounded-xl text-blue-600">
+                                <Shield size={24} />
                             </div>
-                            <div style={progressBg}>
-                                <div style={{ ...progressBar, width: `${Math.min((usage.reports / currentLimits.reports) * 100, 100)}%` }} />
+                            <span className="bg-blue-100 text-blue-700 text-[10px] font-bold px-2 py-1 rounded-full">SÉCURISÉ</span>
+                        </div>
+                        <h3 className="text-lg font-bold text-gray-900 mb-1">Sécurité</h3>
+                        <p className="text-gray-500 text-sm mb-4">Compte et données chiffrées</p>
+
+                        <div className="flex flex-col gap-2 mt-2">
+                            <div className="flex items-center gap-2 text-sm text-gray-600">
+                                <CheckCircle size={16} className="text-green-500" /> Mot de passe fort
+                            </div>
+                            <div className="flex items-center gap-2 text-sm text-gray-600">
+                                <CheckCircle size={16} className="text-green-500" /> Chiffrement AES-256
                             </div>
                         </div>
+                    </div>
+                </div>
 
-                        <div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: 500 }}>
-                                <span>Data Connections</span>
-                                <span style={{ color: 'var(--muted)' }}>{usage.connections} / {currentLimits.connections}</span>
+                {/* ACTIONS */}
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 divide-y divide-gray-100">
+                    <div className="p-4 flex items-center justify-between hover:bg-gray-50 transition-colors cursor-pointer group">
+                        <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 group-hover:bg-indigo-100 group-hover:text-indigo-600 transition-colors">
+                                <CreditCard size={20} />
                             </div>
-                            <div style={progressBg}>
-                                <div style={{ ...progressBar, width: `${Math.min((usage.connections / currentLimits.connections) * 100, 100)}%` }} />
+                            <div>
+                                <h4 className="font-bold text-gray-900">Abonnement</h4>
+                                <p className="text-xs text-gray-500">Gérer la facturation et les plans</p>
                             </div>
                         </div>
-
-                        <div style={{ marginTop: '2.5rem', textAlign: 'center' }}>
-                            {isPremium ? (
-                                <button style={secondaryButtonStyle}>Manage Subscription</button>
-                            ) : (
-                                <button style={primaryButtonStyle}>Upgrade to Premium</button>
-                            )}
-                        </div>
+                        <button className="px-4 py-2 text-xs font-bold border border-gray-200 rounded-lg hover:border-black transition-colors">Gérer</button>
                     </div>
-                </section>
 
-                {/* Section: Security */}
-                <section style={sectionStyle}>
-                    <h2 style={sectionHeaderStyle}>Security</h2>
-
-                    <div style={rowStyle}>
-                        <div style={labelStyle}>Password</div>
-                        <div style={{ ...valueStyle, color: 'var(--muted)', fontSize: '0.9rem' }}>••••••••••••</div>
-                        <button style={linkButtonStyle}>Update</button>
+                    <div className="p-4 flex items-center justify-between hover:bg-gray-50 transition-colors cursor-pointer group">
+                        <Link href="/api/auth/signout" className="flex-1 flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                                <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center text-red-600 group-hover:bg-red-100 transition-colors">
+                                    <LogOut size={20} />
+                                </div>
+                                <div>
+                                    <h4 className="font-bold text-gray-900 group-hover:text-red-600 transition-colors">Déconnexion</h4>
+                                    <p className="text-xs text-gray-500">Se déconnecter de cette session</p>
+                                </div>
+                            </div>
+                            <span className="text-gray-400">→</span>
+                        </Link>
                     </div>
-                    <div style={dividerStyle} />
+                </div>
 
-                    <div style={rowStyle}>
-                        <div style={labelStyle}>Session</div>
-                        <form action={async () => {
-                            "use server"
-                            // SignOut logic usually imported from auth/react or handled via route
-                            // For simplicity in this V2, we link to signout
-                        }}>
-                            <Link href="/api/auth/signout" style={{
-                                display: 'flex', alignItems: 'center', gap: '8px',
-                                color: 'var(--danger)', fontWeight: 600, textDecoration: 'none', fontSize: '0.95rem'
-                            }}>
-                                <LogOut size={16} /> Sign Out
-                            </Link>
-                        </form>
-                    </div>
-                </section>
-
-                {/* Section: Technical (Collapsible-ish feel) */}
-                <section style={{ ...sectionStyle, border: 'none', background: 'transparent', boxShadow: 'none' }}>
-                    <details style={{ cursor: 'pointer' }}>
-                        <summary style={{ fontSize: '0.9rem', color: 'var(--muted)', fontWeight: 500, listStyle: 'none', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <HardDrive size={14} /> Technical Details
-                        </summary>
-                        <div style={{ marginTop: '1rem', padding: '1rem', background: '#f8fafc', borderRadius: '8px', fontSize: '0.85rem', color: '#64748b' }}>
-                            <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                                <span>User ID:</span> <code style={{ fontFamily: 'monospace' }}>{user.id}</code>
-                            </div>
-                            <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                                <span>Org ID:</span> <code style={{ fontFamily: 'monospace' }}>{org.id}</code>
-                            </div>
-                            <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr', gap: '0.5rem' }}>
-                                <span>Joined:</span> <span>{new Date(user.createdAt).toLocaleDateString()}</span>
-                            </div>
-                        </div>
-                    </details>
-                </section>
-
-                <DangerZoneClient />
+                <div className="mt-8">
+                    <DangerZoneClient />
+                </div>
 
             </div>
         </div >
     );
 }
-
-// Styles (Inline for now to match strict requirements without new CSS files)
-const sectionStyle: React.CSSProperties = {
-    background: 'white',
-    borderRadius: '16px',
-    border: '1px solid var(--border)',
-    marginBottom: '2rem',
-    overflow: 'hidden',
-    boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
-};
-
-const sectionHeaderStyle: React.CSSProperties = {
-    padding: '1.25rem 1.5rem',
-    borderBottom: '1px solid var(--border)',
-    fontSize: '1.1rem',
-    fontWeight: 600,
-    color: 'var(--text)',
-    backgroundColor: '#fff' // Ensure contrasting header
-};
-
-const rowStyle: React.CSSProperties = {
-    padding: '1.25rem 1.5rem',
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center'
-};
-
-const dividerStyle: React.CSSProperties = {
-    height: '1px',
-    background: 'var(--border)',
-    margin: '0 1.5rem'
-};
-
-const labelStyle: React.CSSProperties = {
-    fontSize: '0.95rem',
-    fontWeight: 500,
-    color: 'var(--text)'
-};
-
-const valueStyle: React.CSSProperties = {
-    fontSize: '0.95rem',
-    color: 'var(--muted)',
-    fontWeight: 400
-};
-
-const progressBg: React.CSSProperties = {
-    height: '6px',
-    background: '#f1f5f9',
-    borderRadius: '3px',
-    overflow: 'hidden'
-};
-
-const progressBar: React.CSSProperties = {
-    height: '100%',
-    background: 'var(--primary)', // 'var(--primary-gradient)' might be too much for a thin bar
-    borderRadius: '3px'
-};
-
-const primaryButtonStyle: React.CSSProperties = {
-    background: 'var(--primary-gradient)',
-    color: 'white',
-    border: 'none',
-    padding: '0.75rem 2rem',
-    borderRadius: '8px',
-    fontWeight: 600,
-    fontSize: '1rem',
-    cursor: 'pointer',
-    boxShadow: 'var(--shadow-md)'
-};
-
-const secondaryButtonStyle: React.CSSProperties = {
-    background: 'var(--surface-2)',
-    color: 'var(--text)',
-    border: '1px solid var(--border)',
-    padding: '0.75rem 2rem',
-    borderRadius: '8px',
-    fontWeight: 600,
-    fontSize: '1rem',
-    cursor: 'pointer'
-};
-
-const linkButtonStyle: React.CSSProperties = {
-    background: 'none',
-    border: 'none',
-    color: 'var(--primary)',
-    fontWeight: 600,
-    cursor: 'pointer',
-    fontSize: '0.9rem'
-};

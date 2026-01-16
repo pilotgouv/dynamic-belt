@@ -76,6 +76,52 @@ export default function FinanceView({ orgId }: FinanceViewProps) {
                 <KPICard title="Marge %" value={summary.global_margin ? summary.global_margin.toFixed(1) : '-'} suffix="%" loading={loading} />
             </div>
 
+            {/* Profitability Waterfall Overview */}
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                <h3 className="font-bold text-gray-900 mb-6">Décomposition de la Profitabilité</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+                    {/* Left: Waterfall List */}
+                    <div className="space-y-4">
+                        <WaterfallItem label="Chiffre d'Affaires Brut" value={summary.total_revenue} color="text-gray-900" bg="bg-gray-100" />
+                        <WaterfallItem label="Remboursements" value={summary.total_refunds} isNegative color="text-red-500" bg="bg-red-50" indent />
+                        <WaterfallItem label="Coût des Marchandises (COGS)" value={summary.total_cogs} isNegative color="text-red-600" bg="bg-red-50" indent />
+                        <WaterfallItem label="Dépenses Publicitaires (Ads)" value={summary.total_spend} isNegative color="text-purple-600" bg="bg-purple-50" indent />
+                        <WaterfallItem label="Frais de Livraison & Transaction" value={(summary.total_revenue_net - summary.total_profit - (summary.total_spend || 0) - (summary.total_cogs || 0))} isNegative color="text-orange-600" bg="bg-orange-50" indent />
+
+                        <div className="pt-4 border-t mt-2">
+                            <div className="flex justify-between items-center rounded-xl bg-green-50 p-4 border border-green-100">
+                                <span className="font-bold text-green-900">Vrai Profit (Net)</span>
+                                <span className="font-bold text-2xl text-green-700">{formatCurrency(summary.total_profit || 0)}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Right: Ratios */}
+                    <div className="flex flex-col justify-center space-y-6">
+                        <div className="p-6 rounded-xl bg-blue-50 border border-blue-100">
+                            <h4 className="text-sm font-semibold text-blue-900 uppercase tracking-wide mb-2">Efficiency Ratio (MER)</h4>
+                            <div className="text-3xl font-bold text-blue-700">
+                                {summary.total_spend > 0 ? (summary.total_revenue / summary.total_spend).toFixed(2) : '-'}x
+                            </div>
+                            <p className="text-xs text-blue-600 mt-1">Pour 1€ dépensé en pub, vous générez {summary.total_spend > 0 ? (summary.total_revenue / summary.total_spend).toFixed(2) : '0'}€ de CA.</p>
+                        </div>
+                        <div className="p-6 rounded-xl bg-gray-50 border border-gray-100">
+                            <h4 className="text-sm font-semibold text-gray-600 uppercase tracking-wide mb-2">Poids des Coûts</h4>
+                            <div className="space-y-2 text-sm">
+                                <div className="flex justify-between">
+                                    <span>COGS</span>
+                                    <span className="font-mono text-gray-700">{((summary.total_cogs / summary.total_revenue) * 100).toFixed(1)}%</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span>Pubs</span>
+                                    <span className="font-mono text-gray-700">{((summary.total_spend / summary.total_revenue) * 100).toFixed(1)}%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             {/* Deep Table: Daily Financials */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
                 <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
@@ -96,6 +142,7 @@ export default function FinanceView({ orgId }: FinanceViewProps) {
                                 <th className="px-6 py-4 font-semibold text-gray-900 bg-gray-50/80 border-l border-r border-gray-100">CA Net</th>
                                 <th className="px-6 py-4 font-semibold text-red-800">COGS</th>
                                 <th className="px-6 py-4 font-semibold text-red-800">Pubs</th>
+                                <th className="px-6 py-4 font-semibold text-red-800">Livraison</th>
                                 <th className="px-6 py-4 font-semibold text-red-800">Frais</th>
                                 <th className="px-6 py-4 font-semibold text-green-700 bg-green-50/30 border-l border-green-100">Vrai Profit</th>
                                 <th className="px-6 py-4 font-semibold text-green-800">Marge %</th>
@@ -115,6 +162,7 @@ export default function FinanceView({ orgId }: FinanceViewProps) {
                                     </td>
                                     <td className="px-6 py-4 text-red-800/70">-{formatCurrency(row.cogs)}</td>
                                     <td className="px-6 py-4 text-red-800/70">-{formatCurrency(row.spend)}</td>
+                                    <td className="px-6 py-4 text-red-800/70">-{formatCurrency(row.shipping || 0)}</td>
                                     <td className="px-6 py-4 text-red-800/70">-{formatCurrency(row.fees)}</td>
                                     <td className={`px-6 py-4 font-bold border-l border-green-50 bg-green-50/10 ${row.profit_estimated > 0 ? 'text-green-600' : 'text-red-600'}`}>
                                         {formatCurrency(row.profit_estimated)}
@@ -135,4 +183,16 @@ export default function FinanceView({ orgId }: FinanceViewProps) {
             </div>
         </div>
     );
+}
+
+function WaterfallItem({ label, value, isNegative, color, bg, indent }: any) {
+    const val = value || 0;
+    return (
+        <div className={`flex justify-between items-center p-3 rounded-lg ${bg || 'bg-white'} ${indent ? 'ml-6' : ''}`}>
+            <span className={`font-medium ${color || 'text-gray-900'}`}>{label}</span>
+            <span className={`font-bold font-mono ${color || 'text-gray-900'}`}>
+                {isNegative ? '-' : ''}{new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(val)}
+            </span>
+        </div>
+    )
 }

@@ -450,15 +450,24 @@ model SettlementEvent {
 }
 
 model PilotScoreDaily {
-  id          String   @id @default(uuid())
-  orgId       String
-  date        DateTime @db.Date
-  score       Int
-  breakdown   Json     // { profitability: 30, growth: 20... }
-  reasons     Json     // ["High refunds", "Low ad efficiency"]
+  id             String   @id @default(uuid())
+  orgId          String
+  date           DateTime @default(now()) @db.Date // Calculation Date
   
-  organization Organization @relation(fields: [orgId], references: [id])
-  @@unique([orgId, date])
+  periodStart    DateTime @db.Date
+  periodEnd      DateTime @db.Date
+  
+  scoreTotal     Int
+  
+  // Breakdown JSON matching specifc blocks (profitability, trend, acquisition, risk, data)
+  breakdown      Json     
+  
+  reasons        Json     // string[]
+  actions        Json     // string[]
+  
+  organization   Organization @relation(fields: [orgId], references: [id])
+  
+  @@index([orgId, date])
 }
 
 

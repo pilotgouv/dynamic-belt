@@ -6,6 +6,7 @@ import { KPICard } from '@/components/ui/KPICard';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Loader2, TrendingUp, AlertTriangle, CheckCircle } from 'lucide-react';
+import { PilotScoreCard } from '@/components/PilotScoreCard';
 
 interface OverviewViewProps {
     orgId: string;
@@ -105,98 +106,9 @@ export default function OverviewView({ orgId }: OverviewViewProps) {
         <div className="p-8 max-w-[1600px] mx-auto space-y-8 animate-in fade-in duration-500">
 
             {/* ROW A: PILOT Score & Drivers */}
-            <div className="grid grid-cols-12 gap-6">
-                <div className="col-span-12 md:col-span-4 bg-white rounded-2xl p-6 border border-gray-100 shadow-[0_2px_10px_rgba(0,0,0,0.02)] flex items-center justify-between relative overflow-hidden">
-                    <div className="z-10 w-full">
-                        <div className="flex justify-between items-start mb-4">
-                            <div>
-                                <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wide">PILOT Score</h3>
-                                <p className="text-xs text-gray-400 mt-1">Santé globale de l'entreprise</p>
-                            </div>
-                            <div className={`px-2.5 py-1 rounded-full text-xs font-bold ${(summary.pilot_status === 'Excellent' || summary.pilot_status === 'Good') ? 'bg-green-100 text-green-700' :
-                                    summary.pilot_status === 'Fair' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
-                                }`}>
-                                {summary.pilot_status || 'Calcul...'}
-                            </div>
-                        </div>
-
-                        <div className="flex items-center gap-6">
-                            {/* Radial Ring */}
-                            <div className="relative w-24 h-24 flex-shrink-0">
-                                <svg className="w-full h-full transform -rotate-90">
-                                    <circle cx="48" cy="48" r="40" stroke="#f3f4f6" strokeWidth="8" fill="none" />
-                                    <circle
-                                        cx="48" cy="48" r="40"
-                                        stroke={
-                                            (summary.pilot_score >= 80) ? '#10b981' :
-                                                (summary.pilot_score >= 50) ? '#f59e0b' : '#ef4444'
-                                        }
-                                        strokeWidth="8" fill="none"
-                                        strokeDasharray="251.2"
-                                        strokeDashoffset={251.2 - (251.2 * (summary.pilot_score || 0)) / 100}
-                                        strokeLinecap="round"
-                                        className="transition-all duration-1000 ease-out"
-                                    />
-                                </svg>
-                                <div className="absolute inset-0 flex items-center justify-center">
-                                    <span className="text-3xl font-bold text-gray-900">{summary.pilot_score || 0}</span>
-                                </div>
-                            </div>
-
-                            <div className="flex-1">
-                                <p className="text-sm text-gray-500 leading-relaxed">
-                                    {(summary.pilot_score >= 80) ? "Votre entreprise performe au dessus des cibles. Maintenez le cap." :
-                                        (summary.pilot_score >= 50) ? "Performance correcte, mais des optimisations de marge ou d'acquisition sont possibles." :
-                                            "Attention requise. Revoyez votre structure de coûts ou vos campagnes."}
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="col-span-12 md:col-span-8 grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {/* Driver: Profitability */}
-                    <div className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm flex flex-col justify-between">
-                        <div>
-                            <div className="text-xs text-gray-400 font-bold uppercase tracking-wider mb-2">Rentabilité</div>
-                            <div className="flex items-end justify-between mb-2">
-                                <span className="text-2xl font-bold text-gray-900">{summary.pilot_components?.profit || 0}/100</span>
-                            </div>
-                        </div>
-                        <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
-                            <div className="bg-blue-500 h-full rounded-full transition-all duration-1000" style={{ width: `${summary.pilot_components?.profit || 0}%` }}></div>
-                        </div>
-                    </div>
-
-                    {/* Driver: Margin */}
-                    <div className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm flex flex-col justify-between">
-                        <div>
-                            <div className="text-xs text-gray-400 font-bold uppercase tracking-wider mb-2">Sante Marge</div>
-                            <div className="flex items-end justify-between mb-2">
-                                <span className="text-2xl font-bold text-gray-900">{summary.pilot_components?.margin || 0}/100</span>
-                            </div>
-                        </div>
-                        <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
-                            <div className={`h-full rounded-full transition-all duration-1000 ${(summary.pilot_components?.margin >= 80) ? 'bg-green-500' : 'bg-yellow-500'
-                                }`} style={{ width: `${summary.pilot_components?.margin || 0}%` }}></div>
-                        </div>
-                    </div>
-
-                    {/* Driver: Acquisition */}
-                    <div className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm flex flex-col justify-between">
-                        <div>
-                            <div className="text-xs text-gray-400 font-bold uppercase tracking-wider mb-2">Efficacité Pubs</div>
-                            <div className="flex items-end justify-between mb-2">
-                                <span className="text-2xl font-bold text-gray-900">{summary.pilot_components?.roas || 0}/100</span>
-                            </div>
-                        </div>
-                        <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
-                            <div className={`h-full rounded-full transition-all duration-1000 ${(summary.pilot_components?.roas >= 80) ? 'bg-purple-500' :
-                                    (summary.pilot_components?.roas >= 50) ? 'bg-purple-400' : 'bg-red-400'
-                                }`} style={{ width: `${summary.pilot_components?.roas || 0}%` }}></div>
-                        </div>
-                    </div>
-                </div>
+            {/* ROW A: PILOT Score (V2.5 Exact) */}
+            <div className="w-full">
+                <PilotScoreCard />
             </div>
 
             {/* ROW B: KPI Cards */}

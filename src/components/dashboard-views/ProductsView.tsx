@@ -4,8 +4,8 @@ import React, { useEffect, useState } from 'react';
 import { useDateRange } from '@/context/DateRangeContext';
 import { KPICard } from '@/components/ui/KPICard';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { AlertTriangle, Package, Loader2, Trophy } from 'lucide-react';
-// import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { Package, TrendingUp, AlertTriangle, ArrowRight, ShieldAlert, Star } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 interface ProductsViewProps {
     orgId: string;
@@ -13,27 +13,20 @@ interface ProductsViewProps {
 
 export default function ProductsView({ orgId }: ProductsViewProps) {
     const { range } = useDateRange();
+    const router = useRouter();
     const [data, setData] = useState<any>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         let isMounted = true;
-
         async function fetchData() {
             setLoading(true);
             try {
-                const response = await fetch('/api/reports/run', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        organizationId: orgId,
-                        config: {
-                            metrics: ["revenue", "profit", "units_sold", "margin_percent"],
-                            dimensions: ["date"], // We rely on Context for Product Breakdown
-                        },
-                        range: range
-                    })
+                const query = new URLSearchParams({
+                    start: range.start.toISOString(),
+                    end: range.end.toISOString()
                 });
+                const response = await fetch(`/api/products?${query}`);
                 const result = await response.json();
                 if (isMounted) setData(result);
             } catch (e) {
@@ -48,113 +41,119 @@ export default function ProductsView({ orgId }: ProductsViewProps) {
 
     const formatCurrency = (val: number) => new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', minimumFractionDigits: 0 }).format(val);
 
-    const summary = data?.summary || {};
-    const heroProducts = data?.context?.heroProducts || [];
-
-    // Identify The Hero (Rank #1)
-    const topHero = heroProducts.length > 0 ? heroProducts[0] : null;
-
-    if (!loading && heroProducts.length === 0) {
+    if (!loading && (!data || data.products.length === 0)) {
         return (
             <div className="p-8 max-w-[1600px] mx-auto animate-in fade-in duration-500">
                 <EmptyState
-                    title="Intelligence produit non initialisée"
-                    message="La vue Produits identifie vos Hero SKUs, la concentration de profit et les risques de marge. Une fois synchronisé, chaque produit et variante sera analysé individuellement — y compris le vrai profit."
-                    actionLabel="Synchroniser les produits"
+                    title="Aucun produit analysé"
+                    message="Synchronisez vos sources (Shopify, Amazon) pour voir apparaître vos produits et leur rentabilité réelle."
+                    actionLabel="Connecter une source"
                     actionUrl="/dashboard/connections"
-                    secondaryText="Chaque variante est suivie séparément par SKU pour assurer une précision optimale."
                     icon={<Package size={32} />}
                 />
             </div>
         );
     }
 
+    const summary = data?.summary || {};
+    const products = data?.products || [];
+
+    // Top Hero used for banner if needed, or just list. User spec focused on Table + Header KPIs.
+    // I will stick to clean Listing Layout.
+
     return (
-        <div className="p-8 max-w-[1600px] mx-auto space-y-8 animate-in fade-in duration-500">
+        <div className="p-8 max-w-[1600px] mx-auto space-y-6 animate-in fade-in duration-500">
 
-            {/* ROW A: HERO BAND */}
-            {topHero && (
-                <div className="bg-gradient-to-r from-gray-900 to-black rounded-2xl p-8 text-white shadow-lg relative overflow-hidden group">
-                    <div className="absolute right-0 top-0 h-full w-1/2 bg-gradient-to-l from-gray-800 to-transparent opacity-20 group-hover:opacity-30 transition-opacity"></div>
-                    <div className="relative z-10 flex items-start justify-between">
-                        <div>
-                            <div className="flex items-center gap-2 mb-2 text-amber-400 font-bold tracking-wider text-xs uppercase">
-                                <Trophy size={14} /> Hero Product of the Period
-                            </div>
-                            <h1 className="text-3xl font-bold mb-1">{topHero.name}</h1>
-                            <div className="text-gray-400 font-mono text-sm mb-6">{topHero.sku || 'No SKU'}</div>
-
-                            <div className="flex items-center gap-8">
-                                <div>
-                                    <div className="text-gray-400 text-xs uppercase font-bold mb-1">Revenue</div>
-                                    <div className="text-2xl font-bold">{formatCurrency(topHero.revenue)}</div>
-                                </div>
-                                <div>
-                                    <div className="text-gray-400 text-xs uppercase font-bold mb-1">Profit (Est)</div>
-                                    <div className="text-2xl font-bold text-green-400">{formatCurrency(topHero.profit_estimated)}</div>
-                                </div>
-                                <div>
-                                    <div className="text-gray-400 text-xs uppercase font-bold mb-1">Units</div>
-                                    <div className="text-2xl font-bold">{topHero.units}</div>
-                                </div>
-                            </div>
-                        </div>
-                        {/* Image Placeholder */}
-                        <div className="w-32 h-32 bg-gray-800 rounded-xl border border-gray-700 flex items-center justify-center text-gray-600">
-                            <Package size={48} />
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* ROW B: KPI Cards */}
-            <div className="grid grid-cols-4 gap-6">
-                <KPICard title="Total Units Sold" value={summary.total_units_sold || 0} loading={loading} />
-                <KPICard title="Product Revenue" value={summary.total_revenue ? formatCurrency(summary.total_revenue) : '-'} loading={loading} />
-                <KPICard title="Product Profit" value={summary.total_profit ? formatCurrency(summary.total_profit) : '-'} loading={loading} />
-                <KPICard title="Avg Margin" value={summary.global_margin ? summary.global_margin.toFixed(1) : '-'} suffix="%" loading={loading} />
+            {/* ROW A: KPIs V2 */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <KPICard title="Total SKUs Sold" value={summary.totalSkus} loading={loading} />
+                <KPICard title="Hero Products" value={summary.heroCount} loading={loading} description="Génèrent >5% du CA global" />
+                <KPICard title="Top SKU Profit Share" value={summary.topSkuProfitShare ? summary.topSkuProfitShare.toFixed(1) : '-'} suffix="%" loading={loading} />
+                <KPICard title="Marge Moyenne" value={summary.avgMargin ? summary.avgMargin.toFixed(1) : '-'} suffix="%" loading={loading} />
             </div>
 
-            {/* ROW C: Top SKUs Table */}
+            {/* ROW B: PRODUCTS TABLE */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
                 <div className="p-6 border-b border-gray-100 flex justify-between items-center">
-                    <h3 className="font-bold text-gray-900">Top Performing SKUs</h3>
-                    <span className="text-xs text-gray-400">Sort by Revenue</span>
+                    <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                        <Package size={18} className="text-gray-400" /> Performance Produit
+                    </h3>
                 </div>
-                <table className="w-full text-sm text-left">
-                    <thead className="bg-gray-50 text-gray-500 font-medium sticky top-0 z-10 shadow-sm">
-                        <tr>
-                            <th className="px-6 py-4">Product Name</th>
-                            <th className="px-6 py-4">SKU</th>
-                            <th className="px-6 py-4 text-right">Units</th>
-                            <th className="px-6 py-4 text-right">Revenue</th>
-                            <th className="px-6 py-4 text-right">Profit (Est)</th>
-                            <th className="px-6 py-4 text-right">Share</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                        {loading ? (
-                            Array.from({ length: 5 }).map((_, i) => (
-                                <tr key={i}><td colSpan={6} className="px-6 py-4"><div className="h-4 bg-gray-100 rounded w-full animate-pulse"></div></td></tr>
-                            ))
-                        ) : heroProducts.map((p: any, i: number) => (
-                            <tr key={i} className="hover:bg-gray-50 transition-colors">
-                                <td className="px-6 py-4 font-medium text-gray-900">{p.name}</td>
-                                <td className="px-6 py-4 font-mono text-gray-400 text-xs">{p.sku}</td>
-                                <td className="px-6 py-4 text-right">{p.units}</td>
-                                <td className="px-6 py-4 text-right font-medium">{formatCurrency(p.revenue)}</td>
-                                <td className="px-6 py-4 text-right text-green-600 font-medium">{formatCurrency(p.profit_estimated)}</td>
-                                <td className="px-6 py-4 text-right">
-                                    <span className="bg-gray-100 px-2 py-1 rounded text-xs font-bold text-gray-600">
-                                        {((p.revenue / (summary.total_revenue || 1)) * 100).toFixed(0)}%
-                                    </span>
-                                </td>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-sm text-left">
+                        <thead className="bg-gray-50 text-gray-500 font-medium border-b border-gray-100">
+                            <tr>
+                                <th className="px-6 py-4">Produit</th>
+                                <th className="px-6 py-4">SKU / Status</th>
+                                <th className="px-6 py-4">Source</th>
+                                <th className="px-6 py-4 text-right">Unités</th>
+                                <th className="px-6 py-4 text-right">CA</th>
+                                <th className="px-6 py-4 text-right">Vrai Profit</th>
+                                <th className="px-6 py-4 text-right">Marge %</th>
+                                <th className="px-6 py-4 text-center">Action</th>
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                            {products.map((p: any, i: number) => (
+                                <tr
+                                    key={i}
+                                    className="hover:bg-blue-50/50 transition-colors cursor-pointer group"
+                                    onClick={() => router.push(`/dashboard/products/${p.sku}`)}
+                                >
+                                    <td className="px-6 py-4 max-w-[300px]">
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-10 h-10 rounded bg-gray-100 border border-gray-200 flex items-center justify-center shrink-0 overflow-hidden">
+                                                {p.imageUrl ?
+                                                    <img src={p.imageUrl} alt="" className="w-full h-full object-cover" /> :
+                                                    <Package size={16} className="text-gray-400" />
+                                                }
+                                            </div>
+                                            <div className="truncate font-medium text-gray-900" title={p.name}>{p.name}</div>
+                                        </div>
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        <div className="font-mono text-gray-500 text-xs mb-1">{p.sku}</div>
+                                        {p.statusTag === 'HERO' && <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-700"><Star size={10} /> HERO</span>}
+                                        {p.statusTag === 'RISK' && <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-700"><ShieldAlert size={10} /> RISK</span>}
+                                        {p.statusTag === 'VOLUME' && <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-700">VOLUME</span>}
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        <span className="px-2 py-1 rounded border border-gray-200 text-xs font-semibold text-gray-600 bg-gray-50 capitalize">
+                                            {p.provider ? p.provider.toLowerCase().replace('_', ' ') : 'Manual'}
+                                        </span>
+                                    </td>
+                                    <td className="px-6 py-4 text-right font-mono">{p.units}</td>
+                                    <td className="px-6 py-4 text-right font-medium">{formatCurrency(p.revenue)}</td>
+                                    <td className={`px-6 py-4 text-right font-bold ${p.profit > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                        {formatCurrency(p.profit)}
+                                    </td>
+                                    <td className="px-6 py-4 text-right">
+                                        <div className="flex items-center justify-end gap-2">
+                                            <span className={`text-xs font-bold ${p.margin >= 20 ? 'text-gray-700' : 'text-red-500'}`}>
+                                                {p.margin.toFixed(1)}%
+                                            </span>
+                                            <div className="w-16 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                                <div
+                                                    className={`h-full ${p.margin >= 20 ? 'bg-green-500' : p.margin > 0 ? 'bg-yellow-500' : 'bg-red-500'}`}
+                                                    style={{ width: `${Math.min(100, Math.max(0, p.margin))}%` }}
+                                                ></div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td className="px-6 py-4 text-center text-gray-300 group-hover:text-blue-500 transition-colors">
+                                        <ArrowRight size={18} />
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+                {products.length > 20 && (
+                    <div className="p-4 border-t border-gray-100 text-center text-sm text-gray-500">
+                        Affichage des top 20 SKUs...
+                    </div>
+                )}
             </div>
-
         </div>
     );
 }

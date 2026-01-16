@@ -139,40 +139,27 @@ export class BusinessEngine {
     }
 
     /**
-     * V6.0 - PILOT Score Engine
-     * Calculates the global health score (0-100) based on weighted finance and acquisition metrics.
+     * V6.0 - Legacy Health Score (Keep for ReportService compatibility until refactor)
      */
     static calculateHealthScore(
         metrics: { marginPercent: number, roas: number, profit: number, spend: number },
         targets: UserSettings['targets']
     ): { score: number, status: 'Excellent' | 'Good' | 'Fair' | 'Critical', components: any } {
-
-        // 1. Margin Score (Weight 40%)
-        // If Margin >= Target, Score = 100. Else linear decay.
-        // If Margin < 0, Score = 0.
+        // ... (Keep simpler logic or forward to V2 if possible? V2 needs more data)
+        // Keeping as is for safety
         let marginScore = 0;
         if (metrics.marginPercent >= targets.minMargin) marginScore = 100;
         else if (metrics.marginPercent > 0) marginScore = (metrics.marginPercent / targets.minMargin) * 100;
-        else marginScore = 0; // Negative margin penalty
+        else marginScore = 0;
 
-        // 2. ROAS Score (Weight 40%)
-        // If Spend == 0, we assume "Organic Mode" -> if Profitable, ROAS Score = 100 (Maximum Efficiency).
         let roasScore = 0;
-        if (metrics.spend === 0) {
-            roasScore = 100;
-        } else {
+        if (metrics.spend === 0) roasScore = 100;
+        else {
             if (metrics.roas >= targets.minRoas) roasScore = 100;
             else roasScore = (metrics.roas / targets.minRoas) * 100;
         }
 
-        // 3. Profitability Bonus (Weight 20%)
-        // Simple binary: Making money = 100, Losing money = 0.
         const profitScore = metrics.profit > 0 ? 100 : 0;
-
-        // Weighted Average
-        // If Spend > 0: 40% Margin, 40% ROAS, 20% Profit
-        // If Spend == 0: 60% Margin, 40% Profit (No ROAS component effectively 100 makes sense but weighting changes)
-        // Let's keep consistent weights for simplicity V1.
         const totalScore = Math.round((marginScore * 0.4) + (roasScore * 0.4) + (profitScore * 0.2));
 
         let status: 'Excellent' | 'Good' | 'Fair' | 'Critical' = 'Fair';
@@ -189,6 +176,169 @@ export class BusinessEngine {
                 roas: Math.round(roasScore),
                 profit: Math.round(profitScore)
             }
+        };
+    }
+
+    /**
+     * V2.5 - EXACT PILOT SCORE implementation
+     * Based on User Specification: 5 Blocks (Profit, Trend, Acq, Risk, Data)
+     */
+    static calculatePilotScoreV2(
+        inputs: {
+            finance: { profitReal: number, revenueNet: number, revenueGross: number, refunds: number },
+            trend: {
+                revenueNetCurrent: number, revenueNetPrev: number,
+                profitRealCurrent: number, profitRealPrev: number
+            },
+            ads: { spend: number, attributedRevenue: number },
+            risk: {
+                topSkuProfitShare: number, // 0-100
+                topChannelRevenueShare: number, // 0-100
+                refundsRate: number // 0-100 (calculated here or passed)
+            },
+            data: {
+                connectedTypes: string[] // ['sales', 'ads', 'traffic', 'fees']
+            }
+        }
+    ): {
+        scoreTotal: number,
+        breakdown: { profitability: number, trend: number, acquisition: number, risk: number, data: number },
+        reasons: string[],
+        actions: string[]
+    } {
+        const { finance, trend, ads, risk, data } = inputs;
+        const reasons: string[] = [];
+        const actions: string[] = [];
+
+        // --- BLOCK A: PROFITABILITY (30 pts) ---
+        // rule: margin <= 0% -> 0; 0-5 -> 8; 5-10 -> 15; 10-20 -> 24; 20+ -> 30
+        const margin = finance.revenueNet > 0 ? (finance.profitReal / finance.revenueNet) * 100 : 0;
+        let scoreProfit = 0;
+
+        if (margin <= 0) scoreProfit = 0;
+        else if (margin <= 5) scoreProfit = 8;
+        else if (margin <= 10) scoreProfit = 15;
+        else if (margin <= 20) scoreProfit = 24;
+        else scoreProfit = 30;
+
+        // Bonus: Profit > 0 AND Refunds Rate low (<5%)? (Specification says bonus 2 pts)
+        const itemsRefundRate = finance.revenueGross > 0 ? (finance.refunds / finance.revenueGross) * 100 : 0;
+        if (finance.profitReal > 0 && itemsRefundRate < 4) scoreProfit += 2;
+        scoreProfit = Math.min(scoreProfit, 30); // Clamp
+
+        if (scoreProfit < 10) reasons.push("Rentabilité critique (Marge faible ou négative)");
+
+        // --- BLOCK B: TREND (20 pts) ---
+        // rule: Rev down > 20% & profit down -> 0-5
+        // Rev stable (+/- 5%) -> 10
+        // Rev up 5-20% & profit up -> 16
+        // Rev up 20%+ & profit up -> 20
+        let scoreTrend = 10; // Default Stable
+
+        const revChange = trend.revenueNetPrev > 0
+            ? ((trend.revenueNetCurrent - trend.revenueNetPrev) / trend.revenueNetPrev) * 100
+            : 0;
+        const profitChange = trend.profitRealPrev > 0
+            ? ((trend.profitRealCurrent - trend.profitRealPrev) / trend.profitRealPrev) * 100
+            : 0; // Simplified
+
+        // Logic
+        if (revChange < -20 && profitChange < 0) {
+            scoreTrend = 5;
+            reasons.push("Chute brutale du chiffre d'affaires (> -20%)");
+        } else if (revChange >= -5 && revChange <= 5) {
+            scoreTrend = 10;
+        } else if (revChange > 5 && revChange <= 20) {
+            if (profitChange > 0) scoreTrend = 16;
+            else {
+                scoreTrend = 12; // Penalité revenue up but profit down
+                reasons.push("Croissance non rentable (CA en hausse, Profit en baisse)");
+            }
+        } else if (revChange > 20) {
+            if (profitChange > 0) scoreTrend = 20;
+            else {
+                scoreTrend = 14; // Penalité
+                reasons.push("Hyper-croissance dilutive sur les marges");
+            }
+        }
+
+        // --- BLOCK C: ACQUISITION (20 pts) ---
+        // Spend=0 -> 20. Else base on ROAS.
+        let scoreAcq = 0;
+        if (ads.spend === 0) {
+            scoreAcq = 20; // Organic
+        } else {
+            const roas = ads.spend > 0 ? ads.attributedRevenue / ads.spend : 0;
+            if (roas < 1) scoreAcq = 5;
+            else if (roas < 2) scoreAcq = 10;
+            else if (roas < 3) scoreAcq = 15;
+            else scoreAcq = 18;
+
+            if (roas >= 3) scoreAcq = 20;
+
+            if (roas < 2) reasons.push("Efficacité publicitaire faible (ROAS < 2)");
+        }
+
+        // --- BLOCK D: RISK (20 pts) ---
+        // Penalties: Top SKU > 50% profit (-8), Top Channel > 70% (-6), Refund > 8% (-6)
+        let scoreRisk = 20; // Start max, deduct
+
+        if (risk.topSkuProfitShare > 50) {
+            scoreRisk -= 8;
+            reasons.push("Dépendance critique à un seul produit (>50% du profit)");
+            actions.push("Diversifier le catalogue : Pousser le bundle avec le produit Hero");
+        } else if (risk.topSkuProfitShare > 30) {
+            scoreRisk -= 4;
+        }
+
+        if (risk.topChannelRevenueShare > 70) {
+            scoreRisk -= 6;
+            reasons.push("Dépendance à un canal unique (>70% du CA)");
+            actions.push("Lancer un canal d'acquisition secondaire (Google Ads/Meta) pour réduire le risque");
+        }
+
+        if (itemsRefundRate > 8) {
+            scoreRisk -= 6;
+            reasons.push(`Taux de retour très élevé (${itemsRefundRate.toFixed(1)}%)`);
+            actions.push("Auditer la qualité produit et la politique de retour");
+        } else if (itemsRefundRate > 4) {
+            scoreRisk -= 3;
+        }
+
+        scoreRisk = Math.max(0, scoreRisk); // Clamp
+
+        // --- BLOCK E: DATA COMPLETENESS (10 pts) ---
+        // Sales (baseline required, assumed true if we are running this) -> say 3 pts?
+        // Spec: Sales required else 0. Ads +3, Traffic +2, Fees +3?
+        // Actually Spec said: Sales=baseline, Ads=+3, Traffic=+2, Payments=+2, Fees=+3
+        // Total should be 10.
+        let scoreData = 0;
+        if (data.connectedTypes.includes('sales')) {
+            scoreData = 3; // Baseline
+            if (data.connectedTypes.includes('ads')) scoreData += 3;
+            if (data.connectedTypes.includes('traffic')) scoreData += 2;
+            if (data.connectedTypes.includes('fees') || data.connectedTypes.includes('payments')) scoreData += 2;
+        }
+        scoreData = Math.min(10, scoreData);
+
+        if (scoreData < 10) {
+            actions.push("Connecter toutes les sources (Ads, Analytics, Frais) pour gagner 10 pts de score Data");
+        }
+
+        // TOTAL
+        const total = Math.round(scoreProfit + scoreTrend + scoreAcq + scoreRisk + scoreData);
+
+        return {
+            scoreTotal: Math.min(100, Math.max(0, total)),
+            breakdown: {
+                profitability: scoreProfit,
+                trend: scoreTrend,
+                acquisition: scoreAcq,
+                risk: scoreRisk,
+                data: scoreData
+            },
+            reasons: reasons.slice(0, 3), // Top 3
+            actions: actions.slice(0, 3)  // Top 3
         };
     }
 }

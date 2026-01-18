@@ -26,8 +26,8 @@ export async function POST(req: Request) {
         let headers: any[] = [];
         let title = '';
 
-        if (type === 'shipping_fees') {
-            title = 'Détail Frais de Livraison & Transaction';
+        if (type === 'shipping') {
+            title = 'Détail Frais de Livraison';
 
             // Fetch Orders
             const orders = await prisma.order.findMany({
@@ -36,49 +36,99 @@ export async function POST(req: Request) {
                     createdAtSource: { gte: start, lte: end }
                 },
                 orderBy: { createdAtSource: 'desc' },
-                take: 1000 // Limit for safety
+                take: 1000
             });
 
             headers = [
                 { key: 'date', label: 'Date' },
                 { key: 'orderNumber', label: 'Commande' },
-                { key: 'shippingReal', label: 'Livraison (Reel)' },
-                { key: 'shippingRule', label: 'Livraison (Règle)' },
-                { key: 'fees', label: 'Frais Trans.' }
+                { key: 'shippingRevenue', label: 'Payé par Client' },
+                { key: 'value', label: 'Coût Livraison' },
+                { key: 'status', label: 'Type' }
             ];
 
             items = orders.map(o => {
-                // Calc Rule
+                // Determine Shipping COST
+                // Currently only Rule supported as we don't define 'shippingCost' in Order model from source yet
                 let ruleVal = 0;
                 if (settings?.shippingCostMode === 'FIXED_PER_ORDER') ruleVal = settings.shippingCostValue;
                 else if (settings?.shippingCostMode === 'PERCENT_REVENUE') ruleVal = o.grossRevenue * (settings.shippingCostValue / 100);
 
-                // Fee Rule
-                let feeVal = (o.grossRevenue * ((settings?.paymentFeePercent || 0) / 100)) + (settings?.paymentFeeFixed || 0);
+                // If later we have Real Cost, logic goes here
+                const realCost = 0;
+                let finalVal = ruleVal;
+                let status = 'ESTIMÉ'; // Default is Rule
+
+                if (realCost > 0) {
+                    finalVal = realCost;
+                    status = 'EXACT';
+                }
 
                 return {
                     id: o.id,
                     date: o.createdAtSource,
                     orderNumber: o.orderNumber || o.externalId,
-                    shippingReal: o.shippingRevenue, // Proxy
-                    shippingRule: ruleVal,
-                    fees: feeVal // We don't have real fees in Order field easily yet, using Rule as 'Applied Fee'
+                    shippingRevenue: o.shippingRevenue,
+                    value: finalVal,
+                    status
+                };
+            });
+        }
+
+        else if (type === 'fees') {
+            title = 'Détail Frais de Transaction';
+
+            const orders = await prisma.order.findMany({
+                where: {
+                    orgId: organizationId,
+                    createdAtSource: { gte: start, lte: end }
+                },
+                orderBy: { createdAtSource: 'desc' },
+                take: 1000
+            });
+
+            headers = [
+                { key: 'date', label: 'Date' },
+                { key: 'orderNumber', label: 'Commande' },
+                { key: 'provider', label: 'Source' },
+                { key: 'value', label: 'Frais' },
+                { key: 'status', label: 'Type' }
+            ];
+
+            items = orders.map(o => {
+                // Rule Calculation
+                const feeRule = (o.grossRevenue * ((settings?.paymentFeePercent || 0) / 100)) + (settings?.paymentFeeFixed || 0);
+
+                // Real Calculation (from Order)
+                const feeReal = o.feesTotal || 0;
+
+                let finalVal = feeRule;
+                let status = 'ESTIMÉ';
+
+                // Use Real if available (and > 0)
+                if (feeReal > 0) {
+                    finalVal = feeReal;
+                    status = 'EXACT';
+                }
+
+                return {
+                    id: o.id,
+                    date: o.createdAtSource,
+                    orderNumber: o.orderNumber || o.externalId,
+                    provider: o.provider,
+                    value: finalVal,
+                    status
                 };
             });
         }
 
         else if (type === 'ads') {
             title = 'Détail Dépenses Publicitaires';
-            // Fetch AdsDaily
             const ads = await prisma.adsDaily.findMany({
-                where: {
-                    organizationId,
-                    date: { gte: start, lte: end }
-                },
+                where: { organizationId, date: { gte: start, lte: end } },
                 orderBy: { spend: 'desc' }
             });
 
-            // Group by Campaign
             const campMap = new Map<string, number>();
             ads.forEach(a => {
                 const key = `${a.channel} - ${a.campaign}`;
@@ -100,12 +150,10 @@ export async function POST(req: Request) {
         else if (type === 'cogs') {
             title = `Détail COGS (${isStrict ? 'Strict' : 'Estimé'})`;
 
-            // Fetch ProductDaily
             const productDaily = await prisma.productDaily.findMany({
                 where: { organizationId, date: { gte: start, lte: end } },
             });
 
-            // Group by SKU
             const skuMap = new Map<string, { units: number, revenue: number }>();
             productDaily.forEach(p => {
                 const k = p.sku;
@@ -115,7 +163,6 @@ export async function POST(req: Request) {
                 e.revenue += p.revenue;
             });
 
-            // Fetch Product Costs
             const skus = Array.from(skuMap.keys());
             const products = await prisma.product.findMany({
                 where: { orgId: organizationId, sku: { in: skus } },
@@ -144,9 +191,6 @@ export async function POST(req: Request) {
                     status = 'EXACT';
                 } else {
                     if (!isStrict) {
-                        // Estimate
-                        // Fallback % of Revenue -> Cost
-                        // settings.estimateCogsFallback is COST % (e.g. 40)
                         const fallback = (settings?.estimateCogsFallback || 40) / 100;
                         totalCost = data.revenue * fallback;
                         status = 'ESTIMÉ';

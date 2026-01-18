@@ -5,7 +5,7 @@ import { X, Loader2, Download, ExternalLink } from 'lucide-react';
 interface FinanceDetailSheetProps {
     visible: boolean;
     onClose: () => void;
-    type: 'shipping_fees' | 'ads' | 'cogs' | 'profit' | null;
+    type: 'shipping' | 'fees' | 'ads' | 'cogs' | 'profit' | null;
     range: { start: Date, end: Date };
     orgId: string;
 }
@@ -107,8 +107,13 @@ export default function FinanceDetailSheet({ visible, onClose, type, range, orgI
 
                                             // Styling for Status
                                             if (h.key === 'status') {
-                                                const color = val === 'EXACT' ? 'bg-green-100 text-green-700' : val === 'ESTIMÉ' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700';
-                                                display = <span className={`px-2 py-0.5 rounded textxs font-bold ${color}`}>{val}</span>;
+                                                if (val === 'EXACT') {
+                                                    display = <span className="px-2 py-1 rounded border border-green-500 bg-green-50 text-green-700 font-bold text-xs uppercase tracking-wide">Réel</span>;
+                                                } else if (val === 'ESTIMÉ') {
+                                                    display = <span className="px-2 py-1 rounded bg-yellow-100 text-yellow-800 font-medium text-xs uppercase tracking-wide">Estimé</span>;
+                                                } else if (val === 'MANQUANT') {
+                                                    display = <span className="px-2 py-1 rounded bg-red-100 text-red-700 font-bold text-xs uppercase">Manquant</span>;
+                                                }
                                             }
 
                                             return (

@@ -15,7 +15,7 @@ export default function FinanceView({ orgId }: FinanceViewProps) {
     const { range } = useDateRange();
     const [data, setData] = useState<any>(null);
     const [loading, setLoading] = useState(true);
-    const [detailType, setDetailType] = useState<'shipping_fees' | 'ads' | 'cogs' | 'profit' | null>(null);
+    const [detailType, setDetailType] = useState<'shipping' | 'fees' | 'ads' | 'cogs' | 'profit' | null>(null);
 
     useEffect(() => {
         let isMounted = true;
@@ -132,10 +132,18 @@ export default function FinanceView({ orgId }: FinanceViewProps) {
                         />
 
                         <WaterfallItem
-                            label="Frais de Livraison & Transaction"
-                            value={(summary.total_revenue_net - summary.total_profit - (summary.total_spend || 0) - (summary.total_cogs || 0))}
+                            label="Frais de Livraison"
+                            value={summary.total_shipping}
                             isNegative color="text-orange-600" bg="bg-orange-50" indent
-                            onClick={() => setDetailType('shipping_fees')}
+                            onClick={() => setDetailType('shipping')}
+                            clickable
+                        />
+
+                        <WaterfallItem
+                            label="Frais de Transaction"
+                            value={summary.total_fees}
+                            isNegative color="text-amber-600" bg="bg-amber-50" indent
+                            onClick={() => setDetailType('fees')}
                             clickable
                         />
 

@@ -21,11 +21,11 @@ module.exports = {
             },
             keyframes: {
                 heartbeat: {
-                    '0%, 100%': { opacity: '0.05', transform: 'scale(1)' },
-                    '15%': { opacity: '0.3', transform: 'scale(1.015)' },
-                    '30%': { opacity: '0.05', transform: 'scale(1)' },
-                    '45%': { opacity: '0.3', transform: 'scale(1.015)' },
-                    '60%': { opacity: '0.05', transform: 'scale(1)' },
+                    '0%, 100%': { opacity: '0.02', transform: 'scale(1)' },
+                    '15%': { opacity: '0.15', transform: 'scale(1.01)' },
+                    '30%': { opacity: '0.02', transform: 'scale(1)' },
+                    '45%': { opacity: '0.15', transform: 'scale(1.01)' },
+                    '60%': { opacity: '0.02', transform: 'scale(1)' },
                 }
             },
         },

@@ -82,7 +82,7 @@ export function PilotScoreCard() {
                 <div className="flex justify-between items-center z-10">
                     <div className="flex items-center gap-2">
                         <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse shadow-[0_0_8px_rgba(34,211,238,0.6)]" />
-                        <span className="text-xs font-bold uppercase tracking-widest text-cyan-400 drop-shadow-sm font-audiowide">Financial Engine V2</span>
+                        <span className="text-xs font-bold uppercase tracking-widest text-cyan-400 drop-shadow-sm font-montserrat">Financial Engine V2</span>
                     </div>
                     <div className={`px-2 py-0.5 rounded-full text-[10px] font-bold text-white bg-gradient-to-r ${scoreGradient} shadow-sm`}>
                         LIVE

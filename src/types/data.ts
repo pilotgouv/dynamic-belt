@@ -7,6 +7,10 @@ export interface UserSettings {
     vatEnabled: boolean;
     vatMode: 'HT' | 'TTC';
     vatRate: number;
+    socialChargesEnabled?: boolean;
+    socialChargesPercent?: number;
+    incomeTaxEnabled?: boolean;
+    incomeTaxPercent?: number;
     // Costs
     shippingCostMode: 'NONE' | 'FIXED_PER_ORDER' | 'PERCENT_REVENUE';
     shippingCostValue: number;

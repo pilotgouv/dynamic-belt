@@ -47,7 +47,12 @@ export class ReportService {
             targets: {
                 minRoas: settingsRecord?.minRoasTarget ?? 2.5,
                 minMargin: settingsRecord?.minMarginTarget ?? 20
-            }
+            },
+            // Fiscal Map
+            socialChargesEnabled: settingsRecord?.socialChargesEnabled ?? false,
+            socialChargesPercent: settingsRecord?.socialChargesPercent ?? 0,
+            incomeTaxEnabled: settingsRecord?.incomeTaxEnabled ?? false,
+            incomeTaxPercent: settingsRecord?.incomeTaxPercent ?? 0,
         };
 
         // 2. Fetch Data Sources
@@ -245,6 +250,10 @@ export class ReportService {
                 fees: pnl.fees,
                 shipping: pnl.shipping,
 
+                // Fiscal
+                social_charges: pnl.socialCharges,
+                income_tax: pnl.incomeTax,
+
                 spend: spend,
                 impressions: impressions,
                 clicks: clicks,
@@ -294,6 +303,8 @@ export class ReportService {
                 total_cogs: sum('cogs'),
                 total_shipping: sum('shipping'),
                 total_fees: sum('fees'),
+                total_social_charges: sum('social_charges'),
+                total_income_tax: sum('income_tax'),
 
                 // Legacy fields for compat until full refactor
                 pilot_score: 85,

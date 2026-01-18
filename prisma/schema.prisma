@@ -225,6 +225,12 @@ model Settings {
   minRoasTarget        Float        @default(2.5)
   minMarginTarget      Float        @default(20)
   
+  // Fiscal (New)
+  socialChargesEnabled Boolean      @default(false)
+  socialChargesPercent Float        @default(0) // ex 21.7
+  incomeTaxEnabled     Boolean      @default(false)
+  incomeTaxPercent     Float        @default(0) // ex 2.2
+  
   // Automation
   syncEnabled          Boolean      @default(false)
   syncFrequency        String       @default("DAILY") // DAILY, HOURLY

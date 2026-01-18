@@ -44,8 +44,9 @@ export class FinancialEngine {
         uncoveredRevenue: number, // Revenue from products with NO cost
         settings: UserSettings,
         realShipping: number = 0,
-        realFees: number = 0
-    ): { cogs: number, shipping: number, fees: number, isEstimated: boolean } {
+        realFees: number = 0,
+        revenueGrossForTax: number = 0 // New param for tax base
+    ): { cogs: number, shipping: number, fees: number, socialCharges: number, incomeTax: number, isEstimated: boolean } {
 
         let cogs = productCogs;
         let isEstimated = false;
@@ -76,15 +77,24 @@ export class FinancialEngine {
 
         // 3. Payment Fees
         let fees = 0;
-        // In STRICT mode, if we have real fees (from Stripe/etc), use them? 
-        // Currently we don't sync real fees explicitly, but if we did:
         if (settings.dataMode === 'STRICT' && realFees > 0) {
             fees = realFees;
         } else {
             fees = (revenueHT * (settings.paymentFeePercent / 100)) + (ordersCount * settings.paymentFeeFixed);
         }
 
-        return { cogs, shipping, fees, isEstimated };
+        // 4. Fiscal (New) - Based on Gross Revenue usually for AE logic requested
+        let socialCharges = 0;
+        if (settings.socialChargesEnabled) {
+            socialCharges = revenueGrossForTax * ((settings.socialChargesPercent || 0) / 100);
+        }
+
+        let incomeTax = 0;
+        if (settings.incomeTaxEnabled) {
+            incomeTax = revenueGrossForTax * ((settings.incomeTaxPercent || 0) / 100);
+        }
+
+        return { cogs, shipping, fees, socialCharges, incomeTax, isEstimated };
     }
 
     /**
@@ -109,11 +119,11 @@ export class FinancialEngine {
         const revenueNet = this.computeNetRevenue(revenueGross, refunds, settings);
 
         // 2. Costs
-        const costs = this.computeCosts(revenueNet, ordersCount, productCogsKnown, revenueUncovered, settings, realShipping, realFees);
+        const costs = this.computeCosts(revenueNet, ordersCount, productCogsKnown, revenueUncovered, settings, realShipping, realFees, revenueGross);
 
         // 3. Profit
-        // Profit = RevNet - COGS - Shipping - Fees - Ads
-        const totalCosts = costs.cogs + costs.shipping + costs.fees + adSpend;
+        // Profit = RevNet - COGS - Shipping - Fees - Ads - Social - Tax
+        const totalCosts = costs.cogs + costs.shipping + costs.fees + adSpend + costs.socialCharges + costs.incomeTax;
         const profit = revenueNet - totalCosts;
 
         const margin = revenueNet > 0 ? (profit / revenueNet) * 100 : 0;
@@ -126,6 +136,8 @@ export class FinancialEngine {
             cogs: costs.cogs,
             shipping: costs.shipping,
             fees: costs.fees,
+            socialCharges: costs.socialCharges,
+            incomeTax: costs.incomeTax,
             adSpend,
             profit,
             margin,

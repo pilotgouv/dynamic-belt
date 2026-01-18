@@ -10,6 +10,10 @@ interface SettingsData {
     vatEnabled: boolean;
     vatMode: 'HT' | 'TTC';
     vatRate: number;
+    socialChargesEnabled: boolean;
+    socialChargesPercent: number;
+    incomeTaxEnabled: boolean;
+    incomeTaxPercent: number;
     shippingCostMode: 'NONE' | 'FIXED_PER_ORDER' | 'PERCENT_REVENUE';
     shippingCostValue: number;
     paymentFeePercent: number;
@@ -237,6 +241,54 @@ export default function SettingsView({ orgId, logs }: { orgId: string, logs?: an
                                     </div>
                                 )}
                             </div>
+                        </div>
+
+                        {/* Cotisations Sociales (URSSAF) */}
+                        <div className="p-5 flex items-center justify-between hover:bg-gray-50/50">
+                            <div className="flex items-center gap-3">
+                                <Toggle checked={settings.socialChargesEnabled} onChange={v => handleChange('socialChargesEnabled', v)} />
+                                <div>
+                                    <div className="font-semibold text-gray-900 text-sm">Cotisations (URSSAF)</div>
+                                    <div className="text-xs text-gray-500 mt-0.5">% du Chiffre d'Affaires Brut</div>
+                                </div>
+                            </div>
+                            {settings.socialChargesEnabled && (
+                                <div className="flex flex-col items-end animate-in slide-in-from-right-2">
+                                    <span className="text-[10px] text-gray-400 uppercase font-bold mb-1">Taux</span>
+                                    <div className="flex items-center gap-1 bg-gray-50 px-2 py-1 rounded border border-gray-200">
+                                        <SmartInput
+                                            value={settings.socialChargesPercent}
+                                            onChange={v => handleChange('socialChargesPercent', v)}
+                                            className="w-10 text-right font-mono text-sm bg-transparent outline-none"
+                                        />
+                                        <span className="text-xs text-gray-400">%</span>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Impôts sur le revenu */}
+                        <div className="p-5 flex items-center justify-between hover:bg-gray-50/50">
+                            <div className="flex items-center gap-3">
+                                <Toggle checked={settings.incomeTaxEnabled} onChange={v => handleChange('incomeTaxEnabled', v)} />
+                                <div>
+                                    <div className="font-semibold text-gray-900 text-sm">Impôts / Versement Lib.</div>
+                                    <div className="text-xs text-gray-500 mt-0.5">% du Chiffre d'Affaires Brut</div>
+                                </div>
+                            </div>
+                            {settings.incomeTaxEnabled && (
+                                <div className="flex flex-col items-end animate-in slide-in-from-right-2">
+                                    <span className="text-[10px] text-gray-400 uppercase font-bold mb-1">Taux</span>
+                                    <div className="flex items-center gap-1 bg-gray-50 px-2 py-1 rounded border border-gray-200">
+                                        <SmartInput
+                                            value={settings.incomeTaxPercent}
+                                            onChange={v => handleChange('incomeTaxPercent', v)}
+                                            className="w-10 text-right font-mono text-sm bg-transparent outline-none"
+                                        />
+                                        <span className="text-xs text-gray-400">%</span>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </section>

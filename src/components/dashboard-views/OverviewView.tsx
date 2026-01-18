@@ -123,7 +123,7 @@ export default function OverviewView({ orgId }: OverviewViewProps) {
             {/* ROW B: KPI Cards */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <KPICard
-                    title="Vrai Profit"
+                    title="Bénéfice Réel"
                     value={formatCurrency(summary.total_profit)}
                     loading={loading}
                     description="Profit net après tous coûts"

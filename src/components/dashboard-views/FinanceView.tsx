@@ -102,7 +102,7 @@ export default function FinanceView({ orgId }: FinanceViewProps) {
                 <KPICard title="Ventes Brutes" value={summary.total_revenue ? formatCurrency(summary.total_revenue) : '-'} loading={loading} />
                 <KPICard title="CA Net" value={summary.total_revenue_net ? formatCurrency(summary.total_revenue_net) : '-'} loading={loading} />
                 <KPICard title="Coûts (COGS)" value={summary.total_cogs ? formatCurrency(summary.total_cogs) : '-'} loading={loading} />
-                <KPICard title="Vrai Profit" value={summary.total_profit ? formatCurrency(summary.total_profit) : '-'} loading={loading} />
+                <KPICard title="Bénéfice Réel" value={summary.total_profit ? formatCurrency(summary.total_profit) : '-'} loading={loading} />
                 <KPICard title="Marge %" value={summary.global_margin ? summary.global_margin.toFixed(1) : '-'} suffix="%" loading={loading} />
             </div>
 
@@ -147,9 +147,25 @@ export default function FinanceView({ orgId }: FinanceViewProps) {
                             clickable
                         />
 
+                        {summary.total_social_charges > 0 && (
+                            <WaterfallItem
+                                label="Cotisations (URSSAF)"
+                                value={summary.total_social_charges}
+                                isNegative color="text-slate-600" bg="bg-slate-100" indent
+                            />
+                        )}
+
+                        {summary.total_income_tax > 0 && (
+                            <WaterfallItem
+                                label="Impots"
+                                value={summary.total_income_tax}
+                                isNegative color="text-slate-600" bg="bg-slate-100" indent
+                            />
+                        )}
+
                         <div className="pt-4 border-t mt-2">
                             <div className="flex justify-between items-center rounded-xl bg-green-50 p-4 border border-green-100">
-                                <span className="font-bold text-green-900">Vrai Profit (Net)</span>
+                                <span className="font-bold text-green-900">Bénéfice Réel</span>
                                 <span className="font-bold text-2xl text-green-700">{formatCurrency(summary.total_profit || 0)}</span>
                             </div>
                         </div>
@@ -203,7 +219,7 @@ export default function FinanceView({ orgId }: FinanceViewProps) {
                                 <th className="px-6 py-4 font-semibold text-red-800">Pubs</th>
                                 <th className="px-6 py-4 font-semibold text-red-800">Livraison</th>
                                 <th className="px-6 py-4 font-semibold text-red-800">Frais</th>
-                                <th className="px-6 py-4 font-semibold text-green-700 bg-green-50/30 border-l border-green-100">Vrai Profit</th>
+                                <th className="px-6 py-4 font-semibold text-green-700 bg-green-50/30 border-l border-green-100">Bénéfice Réel</th>
                                 <th className="px-6 py-4 font-semibold text-green-800">Marge %</th>
                             </tr>
                         </thead>

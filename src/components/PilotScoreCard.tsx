@@ -95,11 +95,11 @@ export function PilotScoreCard() {
                         <div className="relative w-40 h-40 flex items-center justify-center">
                             <div className="absolute inset-0 bg-slate-100/50 rounded-full blur-xl scale-90" />
                             <svg className="w-full h-full transform -rotate-90 drop-shadow-sm">
-                                <circle cx="80" cy="80" r={radius} stroke="#F1F5F9" strokeWidth="8" fill="none" />
+                                <circle cx="80" cy="80" r={radius} stroke="#F1F5F9" strokeWidth="5" fill="none" />
                                 <circle
                                     cx="80" cy="80" r={radius}
                                     stroke={ringColor}
-                                    strokeWidth="8"
+                                    strokeWidth="5"
                                     fill="none"
                                     strokeDasharray={circumference}
                                     strokeDashoffset={offset}

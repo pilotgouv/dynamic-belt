@@ -59,12 +59,127 @@ export default function TrafficView({ orgId }: TrafficViewProps) {
     const [data, setData] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [detailSheet, setDetailSheet] = useState<string | null>(null);
+    const [showInsight, setShowInsight] = useState(false);
 
-    // ... (rest of load logic)
+    useEffect(() => {
+        setLoading(true);
+        const params = new URLSearchParams({
+            from: range.start.toISOString(),
+            to: range.end.toISOString(),
+            period: range.period
+        });
+
+        fetch(`/api/traffic?${params.toString()}`)
+            .then(res => res.json())
+            .then(setData)
+            .finally(() => setLoading(false));
+    }, [range]);
+
+    const formatCurrency = (val: number) => new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', minimumFractionDigits: 0 }).format(val || 0);
+
+    const { summary, sources: rawSources, is_fallback } = data || {};
+    const hasData = summary?.revenue > 0;
+
+    const sources = React.useMemo(() => {
+        if (!rawSources) return [];
+        const map = new Map();
+
+        rawSources.forEach((src: any) => {
+            const info = processSource(src.source, src.medium);
+            const key = `${info.currentLabel}|${info.type}`;
+
+            if (!map.has(key)) {
+                map.set(key, { ...src, revenue: 0, mediums: new Set() });
+            }
+            const node = map.get(key);
+            node.revenue += src.revenue;
+            node.mediums.add(src.medium);
+            node.source = src.source;
+        });
+
+        return Array.from(map.values()).map(node => ({
+            ...node,
+            medium: Array.from(node.mediums).join(', '),
+        })).sort((a, b) => b.revenue - a.revenue);
+    }, [rawSources]);
+
+    if (loading) return <TrafficSkeleton />;
+
+    if (!hasData) {
+        return (
+            <div className="p-8 w-full max-w-7xl mx-auto flex flex-col items-center justify-center min-h-[60vh] font-montserrat">
+                <EmptyState
+                    title="Aucune donnée de trafic"
+                    message="Commencez par connecter vos sources de données (WooCommerce ou Google Analytics) pour voir apparaître les flux."
+                    actionLabel="Connecter les Sources"
+                    actionUrl="/dashboard/connections"
+                    secondaryText="Support GA4 natif."
+                />
+            </div>
+        );
+    }
+
+    const topSource = sources.length > 0 ? sources[0] : null;
 
     return (
         <div className="p-8 max-w-[1600px] mx-auto space-y-8 font-montserrat animate-in fade-in duration-500">
-            {/* ... HERO ... */}
+
+            {/* --- HERO SECTION --- */}
+            <div className="bg-white rounded-[2rem] p-8 border border-slate-100 shadow-sm relative overflow-hidden flex flex-col lg:flex-row gap-10 items-stretch">
+                <div className="absolute top-0 right-0 w-[600px] h-full bg-gradient-to-l from-indigo-50/40 to-transparent pointer-events-none" />
+
+                <div className="flex-1 flex flex-col justify-center space-y-6 relative z-10">
+                    <div>
+                        <div className="flex items-center gap-3 mb-2">
+                            <div className="p-2 bg-indigo-600 rounded-lg text-white shadow-lg shadow-indigo-500/20">
+                                <Layers size={20} strokeWidth={2.5} />
+                            </div>
+                            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Attribution Data-First</h1>
+                        </div>
+                        <p className="text-slate-500 font-medium max-w-lg leading-relaxed">
+                            Analyse pure des sources réelles ({range.period}).
+                            {is_fallback ? " Mode hybride (Commandes)." : " Mode GA4 synchronisé."}
+                        </p>
+                    </div>
+
+                    <div className="flex flex-wrap gap-4">
+                        <div className="px-4 py-2 bg-slate-50 rounded-xl border border-slate-100 text-xs font-bold text-slate-600 flex items-center gap-2 uppercase tracking-wide">
+                            <Filter size={14} /> Période : {range.period}
+                        </div>
+                        {is_fallback && (
+                            <div className="px-4 py-2 bg-amber-50 rounded-xl border border-amber-100 text-xs font-bold text-amber-700 flex items-center gap-2">
+                                <AlertCircle size={14} /> Attribution basée sur Commandes (GA4 absent)
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                <div
+                    onClick={() => setShowInsight(true)}
+                    className="w-full lg:w-[400px] bg-gradient-to-br from-indigo-600 to-purple-700 rounded-2xl p-6 text-white shadow-xl shadow-indigo-500/20 cursor-pointer hover:scale-[1.02] transition-transform relative group overflow-hidden"
+                >
+                    <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/10 rounded-full blur-2xl group-hover:bg-white/20 transition-all" />
+
+                    <div className="flex justify-between items-start mb-6">
+                        <div className="flex items-center gap-2">
+                            <Zap size={18} className="text-yellow-300 fill-yellow-300" />
+                            <span className="text-xs font-bold uppercase tracking-widest text-indigo-100">Captain's Insight</span>
+                        </div>
+                        <div className="px-2 py-0.5 bg-white/20 rounded text-[10px] font-bold">LIVE</div>
+                    </div>
+
+                    <h3 className="text-lg font-bold leading-snug mb-2">
+                        {topSource ? `Dominance du canal "${processSource(topSource.source, topSource.medium).currentLabel}".` : "Analyse en cours..."}
+                    </h3>
+                    <p className="text-sm text-indigo-100/90 line-clamp-2">
+                        C'est votre principal levier d'acquisition sur la période. Cliquez pour découvrir l'analyse d'impact et les risques.
+                    </p>
+
+                    <div className="mt-4 flex items-center gap-2 text-xs font-bold text-white/90">
+                        Ouvrir l'analyse <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
+                    </div>
+                </div>
+            </div>
 
             {/* --- KPI GRID (Clickable) --- */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">

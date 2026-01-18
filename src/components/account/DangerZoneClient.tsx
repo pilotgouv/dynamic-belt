@@ -15,12 +15,12 @@ export default function DangerZoneClient() {
             <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
                 <button
                     onClick={async () => {
-                        if (!confirm("ATTENTION: Cette action est irréversible.\n\nElle va effacer tout l'historique importé (Finance, Produits, Ads) de la base de données PILOT.\n\nVos données sources (Shopify/WooCommerce) ne sont PAS affectées.\n\nAprès cette action, vous devrez relancer une 'Sync. Données' manuelle.")) return;
+                        if (!confirm("ATTENTION: Cette action est irréversible.\n\nElle va effacer tout l'historique importé (Finance, Produits, Ads) de la base de données PILOT.\n\nVos données sources (Shopify/WooCommerce) ne sont PAS affectées.\n\nAprès cette action, vous devrez relancer 'Synchroniser tout'.")) return;
 
                         try {
                             const res = await fetch('/api/diag/purge', { method: 'POST' });
                             if (res.ok) {
-                                alert("Cache effacé avec succès. Veuillez maintenant cliquer sur 'Sync. Données' dans le menu latéral.");
+                                alert("Données API Effacés, Relancez \"Synchroniser tout\" pour alimenter Pilot.");
                                 window.location.reload();
                             } else {
                                 const err = await res.json();
@@ -58,6 +58,22 @@ export default function DangerZoneClient() {
                     }}
                 >
                     Voir Diagnostic Dates
+                </button>
+
+                <button
+                    onClick={() => window.open('/api/diag/sync-logs', '_blank')}
+                    style={{
+                        background: 'transparent',
+                        color: '#4B5563',
+                        border: '1px solid #D1D5DB',
+                        padding: '8px 16px',
+                        borderRadius: '8px',
+                        fontSize: '0.875rem',
+                        fontWeight: '500',
+                        cursor: 'pointer'
+                    }}
+                >
+                    Voir Logs Synchro (Tech)
                 </button>
             </div>
         </div>

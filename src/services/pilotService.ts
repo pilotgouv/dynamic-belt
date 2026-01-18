@@ -113,10 +113,19 @@ export class PilotService {
         // 5. Data Completeness
         const connections = await prisma.connection.findMany({
             where: { organizationId, status: 'ACTIVE' },
-            select: { tags: true }
+            select: { tags: true, provider: true }
         });
 
-        const connectedTypes = Array.from(new Set(connections.flatMap(c => c.tags || [])));
+        const connectedTypes = new Set<string>(connections.flatMap(c => (c.tags as string[]) || []));
+
+        // Robust Fallback Mapping (Reference engine.ts expectation: 'sales', 'ads', 'traffic')
+        connections.forEach(c => {
+            if (['woocommerce', 'shopify', 'amazon_seller'].includes(c.provider)) connectedTypes.add('sales');
+            if (['google_ads', 'meta_ads', 'tiktok_ads'].includes(c.provider)) connectedTypes.add('ads');
+            if (['ga4'].includes(c.provider)) connectedTypes.add('traffic');
+        });
+
+        const connectedTypesArray = Array.from(connectedTypes);
         // Map common provider names to tags if tags aren't populated strictly
         // For robustness, check providers too if needed, but sticking to logic.
         // Assuming tags are populated like ['sales', 'ads'].
@@ -127,7 +136,7 @@ export class PilotService {
             trend,
             ads,
             risk,
-            data: { connectedTypes }
+            data: { connectedTypes: connectedTypesArray }
         });
 
         // 7. Persist

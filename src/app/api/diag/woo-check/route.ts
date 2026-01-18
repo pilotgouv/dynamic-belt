@@ -55,7 +55,18 @@ export async function GET(req: Request) {
             first_order_sample: Array.isArray(data) && data.length > 0 ? {
                 id: data[0].id,
                 date: data[0].date_created,
-                status: data[0].status
+                status: data[0].status,
+                referrer: data[0].referrer || 'null',
+                meta_data_keys: data[0].meta_data?.map((m: any) => m.key),
+                // Return keys that look like source/attribution
+                attribution_candidates: data[0].meta_data?.filter((m: any) =>
+                    m.key.includes('source') ||
+                    m.key.includes('utm') ||
+                    m.key.includes('attribution') ||
+                    m.key.includes('referer') ||
+                    m.key.includes('wooccm')
+                ),
+                full_meta_dump: data[0].meta_data
             } : 'No orders returned',
             raw_count: Array.isArray(data) ? data.length : 0,
             api_response_preview: Array.isArray(data) ? "Valid Array" : data

@@ -106,8 +106,8 @@ export default function ReportRunnerView({ report, orgId }: ReportRunnerViewProp
                 {/* HEADER & CONTROLS */}
                 <header style={{ marginBottom: '2.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <div>
-                        <Link href="/reports" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', color: THEME.subtext, marginBottom: '0.5rem', fontSize: '0.9rem' }}>
-                            <ArrowLeft size={16} /> Back to Library
+                        <Link href="/dashboard/reports" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', color: THEME.subtext, marginBottom: '0.5rem', fontSize: '0.9rem' }}>
+                            <ArrowLeft size={16} /> Retour aux rapports
                         </Link>
                         {/* Title Removed for cleaner Global Header Integration */}
                         <p style={{ color: THEME.subtext, marginTop: '0.25rem' }}>

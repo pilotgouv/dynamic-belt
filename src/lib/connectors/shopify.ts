@@ -1,9 +1,9 @@
 import { DataSourceConnector, ConnectorResult, ConnectorCapability } from "./types";
 
-// Types specific to Shopify API responses
 interface ShopifyOrder {
     id: number;
     created_at: string;
+    updated_at: string; // Added for correct sorting
     total_price: string;
     subtotal_price: string;
     total_discounts: string;
@@ -26,8 +26,6 @@ export class ShopifyConnector implements DataSourceConnector {
     }
 
     async connect(credentials: any): Promise<boolean> {
-        // In a real scenario, this would exchange an auth code for a token
-        // For V2 prototype, we validate the existing token
         return await this.validateToken();
     }
 
@@ -42,21 +40,24 @@ export class ShopifyConnector implements DataSourceConnector {
         }
     }
 
-    async sync(fromDate: Date, toDate: Date, options: { fullSync?: boolean } = {}): Promise<ConnectorResult> {
+    async sync(fromDate: Date, toDate: Date, options: { fullSync?: boolean, limit?: number } = {}): Promise<ConnectorResult> {
         const result: ConnectorResult = {
             success: false,
             importedCount: 0,
             errors: [],
             financeMetrics: [],
-            productMetrics: []
+            productMetrics: [],
+            rawOrders: [] // Populate rawOrders for SyncService
         };
 
         try {
-            // 1. Fetch Orders from Shopify
-            // Note: Real implementation handles pagination
-            const orders = await this.fetchOrders(fromDate, toDate);
+            const limit = options.limit || 250;
+            const orders = await this.fetchOrders(fromDate, toDate, limit);
 
-            // 2. Normalize Data daily
+            // Populate rawOrders so SyncService can process them
+            result.rawOrders = orders;
+
+            // Basic Metrics Calculation (Legacy / Fallback)
             const dailyMap = new Map<string, { revenue: number, net: number, orders: number, refunds: number }>();
 
             orders.forEach(order => {
@@ -75,7 +76,6 @@ export class ShopifyConnector implements DataSourceConnector {
                 });
             });
 
-            // 3. Transform to FinanceMetrics
             dailyMap.forEach((val, date) => {
                 result.financeMetrics.push({
                     date: date,
@@ -83,7 +83,6 @@ export class ShopifyConnector implements DataSourceConnector {
                     revenueNet: val.net,
                     ordersCount: val.orders,
                     refundsValue: val.refunds,
-                    // Profit/Margin calculated in Engine, not here (Separation of Concerns)
                 });
             });
 
@@ -98,9 +97,9 @@ export class ShopifyConnector implements DataSourceConnector {
         return result;
     }
 
-    private async fetchOrders(from: Date, to: Date): Promise<ShopifyOrder[]> {
-        // Basic Fetch Implementation
-        const url = `https://${this.shopDomain}/admin/api/2024-01/orders.json?status=any&created_at_min=${from.toISOString()}&created_at_max=${to.toISOString()}&limit=250`;
+    private async fetchOrders(from: Date, to: Date, limit: number): Promise<ShopifyOrder[]> {
+        // Use updated_at_min to catch edits. Use limit.
+        const url = `https://${this.shopDomain}/admin/api/2024-01/orders.json?status=any&updated_at_min=${from.toISOString()}&updated_at_max=${to.toISOString()}&limit=${limit}&order=updated_at desc`;
 
         const res = await fetch(url, {
             headers: {

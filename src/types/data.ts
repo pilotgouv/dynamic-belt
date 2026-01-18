@@ -3,12 +3,19 @@ export type CurrencyCode = 'EUR' | 'USD' | 'GBP';
 // 1. User & Settings
 export interface UserSettings {
     currency: CurrencyCode;
-    costProfile: {
-        platformFeesPercent: number; // e.g. 2.9 for Stripe/Shopify
-        shippingCostAvg: number; // e.g. 5.50
-        returnRatePercent: number; // e.g. 10
-        cogsEstimatedPercent: number; // e.g. 30 (generic margin if no SKU data)
-    };
+    // Fiscal
+    vatEnabled: boolean;
+    vatMode: 'HT' | 'TTC';
+    vatRate: number;
+    // Costs
+    shippingCostMode: 'NONE' | 'FIXED_PER_ORDER' | 'PERCENT_REVENUE';
+    shippingCostValue: number;
+    paymentFeePercent: number;
+    paymentFeeFixed: number;
+    // Data Behavior
+    dataMode: 'STRICT' | 'ESTIMATE';
+    estimateCogsFallback: number;
+    // Targets
     targets: {
         minRoas: number;
         minMargin: number;

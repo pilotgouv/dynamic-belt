@@ -36,7 +36,10 @@ export async function POST(req: Request) {
             data: {
                 lastSyncAt: null,
                 lastSyncStatus: null,
-                errorMessage: null
+                errorMessage: null,
+                lastCursor: null,
+                lastFullSyncAt: null,
+                lastQuickSyncAt: null
             }
         });
 

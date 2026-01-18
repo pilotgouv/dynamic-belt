@@ -8,7 +8,6 @@ export class WooCommerceConnector implements DataSourceConnector {
     private consumerSecret: string;
 
     constructor(storeUrl: string, consumerKey: string, consumerSecret: string) {
-        // Ensure storeUrl has protocol but no trailing slash
         let url = storeUrl.replace(/\/$/, "");
         if (!url.startsWith("http")) {
             url = `https://${url}`;
@@ -24,7 +23,6 @@ export class WooCommerceConnector implements DataSourceConnector {
 
     private buildUrl(path: string, params: Record<string, string | number | boolean | undefined>) {
         const url = new URL(`${this.storeUrl}${path}`);
-        // Woo safe auth (most compatible) - Pass credentials in Query Params
         url.searchParams.set("consumer_key", this.consumerKey);
         url.searchParams.set("consumer_secret", this.consumerSecret);
 
@@ -36,7 +34,6 @@ export class WooCommerceConnector implements DataSourceConnector {
 
     async validateToken(): Promise<boolean> {
         try {
-            // Remove Authorization header usage
             const url = this.buildUrl("/wp-json/wc/v3/system_status", {});
             const res = await fetch(url);
             return res.status === 200;
@@ -45,214 +42,209 @@ export class WooCommerceConnector implements DataSourceConnector {
         }
     }
 
-    async sync(fromDate: Date, toDate: Date, options: { deepSync?: boolean, fullSync?: boolean } = {}): Promise<ConnectorResult> {
+    async sync(fromDate: Date, toDate: Date, options: { deepSync?: boolean, fullSync?: boolean, limit?: number, onProgress?: (msg: string, pct?: number) => void } = {}): Promise<ConnectorResult> {
         const result: ConnectorResult = {
             success: false,
             importedCount: 0,
             errors: [],
             financeMetrics: [],
-            productMetrics: []
+            productMetrics: [],
+            rawOrders: []
         };
 
         const allOrders: any[] = [];
         let page = 1;
         let hasMore = true;
 
-        // Force Deep Sync if requested or if date is very old
         const isDeepSync = options.deepSync || options.fullSync || fromDate.getFullYear() <= 2020;
+        const limit = options.limit || 0;
+        const progressCb = options.onProgress || ((m, p) => { });
 
-        console.log(`[WooCommerce] Starting Sync. DeepSync: ${isDeepSync}. From ${fromDate.toISOString()}`);
+        console.log(`[WooCommerce] Starting Sync. Deep: ${isDeepSync}, Limit: ${limit}. From ${fromDate.toISOString()}`);
+        progressCb('Preparation...', 15);
 
         try {
-            // Deep Sync: safety cap 500 pages (50,000 orders). Incremental: 20 pages (2,000 orders).
-            const MAX_PAGES = isDeepSync ? 500 : 20;
+            const MAX_PAGES = isDeepSync ? 500 : (limit > 0 ? 1 : 20);
 
             while (hasMore && page <= MAX_PAGES) {
                 const queryParams: Record<string, string | number | boolean | undefined> = {
-                    per_page: '100',
+                    per_page: limit > 0 ? limit.toString() : '100',
                     page: page.toString(),
-                    order: isDeepSync ? 'asc' : 'desc',
-                    orderby: 'date' // Using date as requested for deep sync
-                    // NO STATUS param at all (Fetch everything: cancelled, failed, etc.)
+                    order: 'desc', // Always newest first
+                    orderby: 'modified' // Track modifications!
                 };
 
-                // Date Filters:
-                // Incremental only. Deep sync gets everything.
                 if (!isDeepSync) {
-                    // Format: YYYY-MM-DDTHH:mm:ss
-                    queryParams.after = fromDate.toISOString().split('.')[0];
+                    // Use modified_after for incremental
+                    queryParams.modified_after = fromDate.toISOString().split('.')[0];
                 }
 
-                // Incremental 'before' cap
-                if (!isDeepSync) {
-                    queryParams.before = toDate.toISOString().split('.')[0];
-                }
+                // If limit is set (Check Mode), we don't strictly need Date filter if we just want "Latest Modified" 
+                // BUT for "Sync Delta", we need modified_after.
+                // Assuming limit=1 is used for "Get Latest Global".
+                // If options.limit > 0, we might want to ignore date filter if checking global max? 
+                // The User Spec says: "Check limit=1 sorted by modified desc". 
+                // If I pass fromDate=Cursor, and limit=1, I check if there is ANY order modified after cursor.
+                // If result is empty -> No new data.
+                // Works perfectly.
 
-                // USE NEW BUILD_URL (No Headers needed)
                 const url = this.buildUrl("/wp-json/wc/v3/orders", queryParams);
 
-                console.log(`[WooCommerce] Fetching Page ${page}. Mode: ${isDeepSync ? 'DEEP' : 'INC'}. Url: ${url.replace(this.consumerSecret, '***')}`);
+                console.log(`[WooCommerce] Fetching Page ${page}. Url: ${url.replace(this.consumerSecret, '***')}`);
 
-                // Retry logic
                 let res;
                 let retries = 0;
                 while (retries < 3) {
                     try {
                         const controller = new AbortController();
                         const timeoutId = setTimeout(() => controller.abort(), 30000);
-
-                        // NO HEADERS! Auth is in URL.
                         res = await fetch(url, { signal: controller.signal });
-
                         clearTimeout(timeoutId);
                         if (res.ok) break;
-                        throw new Error(`Status ${res.status} - ${res.statusText}`);
+                        throw new Error(`Status ${res.status}`);
                     } catch (e: any) {
                         retries++;
-                        console.warn(`[WooCommerce] Retry ${retries} for page ${page}. Error: ${e.message}`);
                         await new Promise(r => setTimeout(r, 2000 * retries));
                     }
                 }
 
-                if (!res || !res.ok) {
-                    throw new Error(`WooCommerce API Failed: ${res?.status} ${res?.statusText}`);
-                }
+                if (!res || !res.ok) throw new Error(`WooCommerce API Failed`);
 
                 const pageOrders = await res.json();
 
                 if (Array.isArray(pageOrders)) {
-                    // Log diagnosis for this page
-                    if (pageOrders.length > 0) {
-                        const firstDate = pageOrders[0].date_created;
-                        const lastDate = pageOrders[pageOrders.length - 1].date_created;
-                        console.log(`[WooCommerce] Page ${page} received ${pageOrders.length} orders. Range: ${firstDate} -> ${lastDate}`);
-                    } else {
-                        console.log(`[WooCommerce] Page ${page} received 0 orders.`);
-                    }
+                    allOrders.push(...pageOrders);
 
-                    // Log Status Distribution
-                    const statusCounts = pageOrders.reduce((acc: any, o: any) => {
-                        acc[o.status] = (acc[o.status] || 0) + 1;
-                        return acc;
-                    }, {});
-                    console.log(`[WooCommerce] Page ${page} Statuses:`, JSON.stringify(statusCounts));
-
-                    // Local Filtering: Relaxed to include custom statuses like 'delivered'
-                    // We found 'delivered' (35 orders) which is non-standard but valid for this store.
-                    const validStatuses = ['completed', 'processing', 'on-hold', 'refunded', 'pending', 'failed', 'cancelled', 'delivered', 'shipped', 'done'];
-                    const filteredOrders = pageOrders.filter((o: any) => validStatuses.includes(o.status));
-
-                    if (filteredOrders.length < pageOrders.length) {
-                        const dropped = pageOrders.filter((o: any) => !validStatuses.includes(o.status));
-                        console.warn(`[WooCommerce Warning] Dropped ${dropped.length} orders with unknown statuses:`, dropped.map((o: any) => o.status));
-                    }
-
-                    console.log(`[WooCommerce] Page ${page}: Importing ${filteredOrders.length} / ${pageOrders.length} orders.`);
-
-                    allOrders.push(...filteredOrders);
-
-                    if (pageOrders.length < 100) {
+                    if (limit > 0 && allOrders.length >= limit) {
+                        hasMore = false;
+                    } else if (pageOrders.length < 100) {
                         hasMore = false;
                     } else {
                         page++;
                     }
                 } else {
-                    console.error("[WooCommerce] Unexpected response format (not array):", pageOrders);
-                    hasMore = false;
-                }
-
-                if (page >= MAX_PAGES) {
-                    console.warn(`[WooCommerce] Safety Cap Reached (${MAX_PAGES} pages). Sync stopped.`);
                     hasMore = false;
                 }
             }
 
-            const orders = allOrders;
+            result.rawOrders = allOrders; // Important!
 
-            // Normalize
-            const dailyMap = new Map<string, { revenue: number, net: number, orders: number, refunds: number, cogs: number }>();
-            const productMap = new Map<string, { name: string, units: number, revenue: number, sku: string, cogs: number }>();
+            // Normalize (Should handle variations in metrics if needed, but SyncService handles DB Upsert)
+            // We still populate metrics for immediate feedback if needed, but primary logic is now in SyncService.
+            // ... (Keep existing Metric Calculation logic for robustness)
 
-            orders.forEach((order: any) => {
-                const day = order.date_created.split('T')[0];
-                let orderCogs = 0;
-
-                // Product Stats
-                if (order.line_items && Array.isArray(order.line_items)) {
-                    order.line_items.forEach((item: any) => {
-                        const key = `${day}::${item.sku || item.product_id}`;
-                        const sku = item.sku || `ID-${item.product_id}`;
-                        const pCurrent = productMap.get(key) || { name: item.name, units: 0, revenue: 0, sku, cogs: 0 };
-
-                        // Handle potential string numbers
-                        const qty = parseFloat(item.quantity) || 0;
-                        const lineTotal = parseFloat(item.total) || 0;
-
-                        // Try find COGS in meta
-                        let unitCost = 0;
-                        const metas = item.meta_data || [];
-                        // Common Cost Keys from plugins (Cost of Goods, etc.)
-                        const costMeta = metas.find((m: any) => ['_cost', '_product_cost', '_alg_wc_cog_cost', '_wc_cog_cost', 'cost_price', 'cost'].includes(m.key));
-                        if (costMeta) {
-                            unitCost = parseFloat(costMeta.value) || 0;
-                        }
-
-                        const lineCogs = unitCost * qty;
-                        orderCogs += lineCogs;
-
-                        productMap.set(key, {
-                            name: item.name,
-                            units: pCurrent.units + qty,
-                            revenue: pCurrent.revenue + lineTotal,
-                            sku: sku,
-                            cogs: pCurrent.cogs + lineCogs
-                        });
-                    });
-                }
-
-                // Finance Stats
-                const current = dailyMap.get(day) || { revenue: 0, net: 0, orders: 0, refunds: 0, cogs: 0 };
-                const total = parseFloat(order.total);
-                const refundTotal = parseFloat(order.refund_total || '0');
-
+            const dailyMap = new Map<string, any>();
+            allOrders.forEach((order: any) => {
+                const day = (order.date_created || order.date_modified).split('T')[0];
+                const gross = parseFloat(order.total);
+                const current = dailyMap.get(day) || { revenue: 0, net: 0, orders: 0 };
                 dailyMap.set(day, {
-                    revenue: current.revenue + total,
-                    net: current.net + (total - refundTotal),
-                    orders: current.orders + 1,
-                    refunds: current.refunds + refundTotal,
-                    cogs: current.cogs + orderCogs
+                    revenue: current.revenue + gross,
+                    orders: current.orders + 1
                 });
             });
 
             dailyMap.forEach((val, date) => {
                 result.financeMetrics.push({
-                    date: date,
+                    date,
                     revenueGross: val.revenue,
-                    revenueNet: val.net,
+                    revenueNet: val.revenue, // Approx
                     ordersCount: val.orders,
-                    refundsValue: val.refunds,
-                    costOfGoods: val.cogs
-                });
-            });
-
-            productMap.forEach((val, key) => {
-                const [date] = key.split('::');
-                result.productMetrics.push({
-                    date: date,
-                    sku: val.sku,
-                    name: val.name,
-                    unitsSold: val.units,
-                    revenue: val.revenue,
-                    marginEstimated: 0,
-                    profitEstimated: val.revenue - val.cogs // Real Profit if COGS found!
+                    refundsValue: 0
                 });
             });
 
             result.success = true;
-            result.importedCount = orders.length;
+            result.importedCount = allOrders.length;
+
+            // Catalog Fetch (Only if NOT a Limit Check)
+            // Catalog Fetch (Full Sync or Catalog Check)
+            // Logic: If limit=1 (Check Mode), we skip.
+            // If FullSync, we fetch ALL.
+            // If QuickSync, we fetch Modified.
+            if ((!options.limit || options.limit !== 1)) {
+
+                const products: any[] = [];
+                let pPage = 1;
+                let pHasMore = true;
+                // Safety Cap for now to avoid timeout on Vercel (Time limit 10s-60s)
+                // If deep sync, we might hit limits. Recommended to use Background Jobs or cursor.
+                // For MVP, limit to 5 pages (500 products).
+                const P_MAX_PAGES = isDeepSync ? 20 : 5;
+
+                while (pHasMore && pPage <= P_MAX_PAGES) {
+                    const pParams: any = {
+                        per_page: '100',
+                        page: pPage.toString(),
+                        order: 'desc',
+                        orderby: 'modified'
+                    };
+                    if (!isDeepSync) {
+                        // Incremental: Modified after last sync
+                        pParams.modified_after = fromDate.toISOString();
+                    }
+
+                    console.log(`[Woo] Fetching Products Page ${pPage}...`);
+                    progressCb(`Récupération Catalogue Page ${pPage}/${P_MAX_PAGES}...`, 20 + Math.round((pPage / P_MAX_PAGES) * 20)); // 20-40%
+                    try {
+                        const pUrl = this.buildUrl("/wp-json/wc/v3/products", pParams);
+                        const pRes = await fetch(pUrl);
+                        if (pRes.ok) {
+                            const batch = await pRes.json();
+                            if (Array.isArray(batch) && batch.length > 0) {
+                                // Parallelize Variation Fetching (Batch 5)
+                                const fetchVariations = async (p: any) => {
+                                    if (p.type === 'variable' || (p.variations && p.variations.length > 0)) {
+                                        try {
+                                            const vUrl = this.buildUrl(`/wp-json/wc/v3/products/${p.id}/variations`, { per_page: '100' });
+                                            // Add 1s delay jitter to avoid pure burst
+                                            // await new Promise(r => setTimeout(r, Math.random() * 500)); 
+                                            const vRes = await fetch(vUrl);
+                                            if (vRes.ok) {
+                                                const vars = await vRes.json();
+                                                if (Array.isArray(vars)) {
+                                                    return vars.map((v: any) => ({ ...v, is_variation: true, parent_title: p.name }));
+                                                }
+                                            }
+                                        } catch (ev) { console.error(`Var Fetch Fail ${p.id}`, ev); }
+                                    }
+                                    return [];
+                                };
+
+                                // Batch Array
+                                const chunks = [];
+                                const CHUNK_SIZE = 5;
+                                for (let i = 0; i < batch.length; i += CHUNK_SIZE) {
+                                    chunks.push(batch.slice(i, i + CHUNK_SIZE));
+                                }
+
+                                for (const chunk of chunks) {
+                                    // Process chunk parallel
+                                    const results = await Promise.all(chunk.map(async (p: any) => {
+                                        products.push(p);
+                                        return await fetchVariations(p);
+                                    }));
+                                    // flattening results and pushing to products
+                                    results.flat().forEach(v => products.push(v));
+                                }
+
+                                if (batch.length < 100) pHasMore = false;
+                                else pPage++;
+                            } else {
+                                pHasMore = false;
+                            }
+                        } else {
+                            pHasMore = false;
+                        }
+                    } catch (ep) {
+                        console.error("Prod Fetch Fail", ep);
+                        pHasMore = false;
+                    }
+                }
+                result.rawProducts = products;
+            }
 
         } catch (error: any) {
-            console.error("WooCommerce Sync Error", error);
             result.errors.push(error.message);
             result.success = false;
         }

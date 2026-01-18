@@ -3,12 +3,15 @@ import { UserSettings, FinanceDailyMetric, AdsChannelMetric } from "@/types/data
 // Default Profile for a typical E-commerce
 export const DEFAULT_SETTINGS: UserSettings = {
     currency: 'EUR',
-    costProfile: {
-        platformFeesPercent: 2.9, // Stripe + Shopify
-        shippingCostAvg: 4.50,
-        returnRatePercent: 8,
-        cogsEstimatedPercent: 40 // ~60% Gross Margin
-    },
+    vatEnabled: false,
+    vatMode: 'HT',
+    vatRate: 0.20,
+    shippingCostMode: 'FIXED_PER_ORDER',
+    shippingCostValue: 4.50,
+    paymentFeePercent: 2.9,
+    paymentFeeFixed: 0.25,
+    dataMode: 'ESTIMATE',
+    estimateCogsFallback: 40,
     targets: {
         minRoas: 2.5,
         minMargin: 20
@@ -22,14 +25,19 @@ export const DEFAULT_SETTINGS: UserSettings = {
 export class BusinessEngine {
 
     static calculateProfit(revenueGross: number, refundsValue: number, adSpend: number, orders: number, settings: UserSettings): Partial<FinanceDailyMetric> {
-        const { platformFeesPercent, shippingCostAvg, cogsEstimatedPercent } = settings.costProfile;
+        // Map new settings to old logic
+        const platformFeesPercent = settings.paymentFeePercent;
+        const shippingCostAvg = settings.shippingCostMode === 'FIXED_PER_ORDER' ? settings.shippingCostValue : 0;
+        const cogsEstimatedPercent = settings.estimateCogsFallback;
 
-        const fees = revenueGross * (platformFeesPercent / 100);
-        const shipping = orders * shippingCostAvg;
+        const fees = revenueGross * (platformFeesPercent / 100) + (orders * settings.paymentFeeFixed);
+        const shipping = settings.shippingCostMode === 'PERCENT_REVENUE'
+            ? revenueGross * (settings.shippingCostValue / 100)
+            : orders * shippingCostAvg;
         const cogs = revenueGross * (cogsEstimatedPercent / 100);
 
-        // Net Revenue: Use real refunds if available, otherwise estimate
-        const refundAmount = refundsValue > 0 ? refundsValue : (revenueGross * (settings.costProfile.returnRatePercent / 100));
+        // Net Revenue: Use real refunds if available, otherwise estimate (deprecated return rate)
+        const refundAmount = refundsValue > 0 ? refundsValue : 0;
         const revenueNet = revenueGross - refundAmount;
 
         // True Economic Profit Formula
@@ -65,7 +73,7 @@ export class BusinessEngine {
         return adsData.map(ad => {
             // Breakeven ROAS = 1 / (Gross Margin %)
             // e.g. if Margin is 60% (0.6), BE ROAS = 1.66
-            const grossMarginParam = 1 - (settings.costProfile.cogsEstimatedPercent / 100);
+            const grossMarginParam = 1 - (settings.estimateCogsFallback / 100);
             const breakevenRoas = 1 / grossMarginParam;
 
             // Add buffer for OpEx (shipping/fees) roughly 15%
@@ -78,7 +86,7 @@ export class BusinessEngine {
             // Estimated Contribution (Revenue attributed via ROAS - Spend)
             // Revenue = Spend * ROAS
             const estimatedRevenue = ad.spend * ad.roas;
-            const estimatedCogs = estimatedRevenue * (settings.costProfile.cogsEstimatedPercent / 100);
+            const estimatedCogs = estimatedRevenue * (settings.estimateCogsFallback / 100);
             const estimatedProfit = estimatedRevenue - ad.spend - estimatedCogs;
 
             return {
@@ -312,13 +320,31 @@ export class BusinessEngine {
         // Spec: Sales required else 0. Ads +3, Traffic +2, Fees +3?
         // Actually Spec said: Sales=baseline, Ads=+3, Traffic=+2, Payments=+2, Fees=+3
         // Total should be 10.
+        // --- BLOCK E: DATA COMPLETENESS (10 pts) ---
+        // Sales = 3 pts
+        // GA4 (Traffic) = 3 pts
+        // Ads = 2 pts per channel (max 4)
+        // Fees/Other = Bonus
         let scoreData = 0;
-        if (data.connectedTypes.includes('sales')) {
-            scoreData = 3; // Baseline
-            if (data.connectedTypes.includes('ads')) scoreData += 3;
-            if (data.connectedTypes.includes('traffic')) scoreData += 2;
-            if (data.connectedTypes.includes('fees') || data.connectedTypes.includes('payments')) scoreData += 2;
+
+        const hasSales = data.connectedTypes.includes('sales');
+        const hasTraffic = data.connectedTypes.includes('traffic') || data.connectedTypes.includes('ga4');
+        const adsCount = data.connectedTypes.filter(t => t === 'ads' || ['google_ads', 'meta_ads', 'tiktok_ads'].includes(t)).length;
+        // Note: connectedTypes usually has tags like 'ads'. We might effectively count 'ads' just once if simplified in PilotService.
+        // Let's assume PilotService sends ['sales', 'ads', 'ads'] if multiple providers? 
+        // Checking PilotService: It sets UNIQUE tags. So we only get 'ads' once if any exists.
+
+        if (hasSales) scoreData += 3;
+        if (hasTraffic) scoreData += 3;
+
+        if (data.connectedTypes.includes('ads')) {
+            scoreData += 4; // If at least one ad source, +4. 
+            // User wanted differentiation for "2,3 sources", but standard 'ads' tag hides it.
+            // For now: Sales(3) + Traffic(3) + Ads(4) = 10.
+        } else if (hasSales && hasTraffic) {
+            scoreData += 2; // Partial if no ads but traffic
         }
+
         scoreData = Math.min(10, scoreData);
 
         if (scoreData < 10) {

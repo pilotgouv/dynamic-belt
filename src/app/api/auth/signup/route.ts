@@ -46,8 +46,8 @@ export async function POST(req: NextRequest) {
                     settings: {
                         create: {
                             currency: 'EUR',
-                            shippingCostAvg: 0,
-                            cogsEstimatedPercent: 40
+                            shippingCostValue: 0,
+                            estimateCogsFallback: 40
                         }
                     }
                 }

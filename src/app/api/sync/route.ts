@@ -1,59 +1,63 @@
-import { NextResponse } from 'next/server';
-import { SyncService } from '@/services/syncService';
 import { auth } from '@/auth';
+import { prisma } from '@/lib/prisma';
+import { SyncService } from '@/services/syncService';
+import { NextResponse } from 'next/server';
+import * as NextServer from 'next/server';
 
-export const runtime = 'nodejs';
+export const maxDuration = 300; // Vercel Hobby Limit (5min)
+
+// Dynamic 'after' resolution (stable in 16, unstable in 15)
+const afterApi = (NextServer as any).after || (NextServer as any).unstable_after || ((cb: any) => cb());
 
 export async function POST(req: Request) {
     const session = await auth();
+    if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    // 1. Guard: Check Auth
-    if (!session || !session.user) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    let body = {};
+    try { body = await req.json(); } catch (e) { }
 
-    try {
-        const body = await req.json();
-        const { connectionId, type } = body;
-        const orgId = (session.user as any).organizationId;
-        const isFullSync = type === 'full' || body.fullSync === true;
+    // Determine Type
+    const baseType = (body as any).fullSync ? 'full' : 'quick';
+    const connectionId = (body as any).connectionId;
+    const type = connectionId ? `${baseType}:${connectionId}` : baseType;
 
-        if (connectionId) {
-            // Single Sync
-            // Verify ownership
-            const output = await SyncService.syncConnection(connectionId, undefined, { fullSync: isFullSync });
-            return NextResponse.json({ success: true, result: output });
-        } else {
-            // Sync All Active
-            const { ConnectionService } = await import('@/lib/connections/connection-service');
-            const activeConnections = await ConnectionService.getActiveConnections(orgId);
+    // Get Org
+    const membership = await prisma.membership.findFirst({ where: { userId: session.user.id } });
+    if (!membership) return NextResponse.json({ error: 'No Organization found' }, { status: 400 });
 
-            const results = [];
-            for (const conn of activeConnections) {
-                try {
-                    const res = await SyncService.syncConnection(conn.id, conn, { fullSync: isFullSync });
-                    results.push({
-                        provider: conn.provider,
-                        success: res.success,
-                        imported: res.importedCount,
-                        error: null
-                    });
-                } catch (e: any) {
-                    console.error(`Sync failed for ${conn.provider}`, e);
-                    results.push({
-                        provider: conn.provider,
-                        success: false,
-                        imported: 0,
-                        error: e.message
-                    });
-                }
-            }
-
-            return NextResponse.json({ success: true, results });
+    // Create Job
+    const job = await prisma.syncJob.create({
+        data: {
+            orgId: membership.organizationId,
+            type: type,
+            status: 'queued',
+            message: 'Démarrage...',
+            progress: 0
         }
+    });
 
-    } catch (error: any) {
-        console.error("Sync API Error:", error);
-        return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    // Start Worker (Detached execution pattern for Vercel)
+    // We do NOT await this. Next.js might warn/kill, but Vercel usually allows short background tasks.
+    // If it dies, the Job stays 'running' or 'queued'. 
+    // User can retry.
+    // "waitUntil" is available in Next.js 15 / Vercel Edge functions. Here we assume Node.
+    // We use setImmediate to detach from event loop for response.
+
+    const worker = async () => {
+        console.log(`[Job ${job.id}] Background start`);
+        try {
+            await SyncService.processJob(job.id);
+        } catch (e) {
+            console.error(`[Job ${job.id}] Failed`, e);
+        }
+    };
+
+    // Execute after response to prevent Vercel freeze
+    try {
+        afterApi(worker);
+    } catch (e) {
+        worker();
     }
+
+    return NextResponse.json({ success: true, jobId: job.id, status: 'queued' });
 }

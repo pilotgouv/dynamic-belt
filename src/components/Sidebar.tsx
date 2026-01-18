@@ -1,79 +1,94 @@
-'use client';
+"use client";
 
 import React, { useState, useEffect } from 'react';
-import styles from './Sidebar.module.css';
+import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
 import {
     LayoutDashboard,
-    Wallet,
-    Users,
-    Megaphone,
     Package,
-    Link as LinkIcon,
-    FileText,
-    LogOut,
-    Check
+    Megaphone,
+    BarChart3,
+    Settings,
+    Plug,
+    User as UserIcon,
+    Globe
 } from 'lucide-react';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { signOut } from 'next-auth/react';
-import Image from 'next/image';
+import styles from './Sidebar.module.css';
 import CircularMenu from './CircularMenu';
 
 const MENU_ITEMS = [
-    { label: 'Vue d\'ensemble', icon: LayoutDashboard, path: '/dashboard/overview' },
-    { label: 'Finance', icon: Wallet, path: '/dashboard/finance' },
-    { label: 'Performance Ads', icon: Megaphone, path: '/dashboard/ads' },
-    { label: 'Trafic', icon: Users, path: '/dashboard/traffic' },
-    { label: 'Produits', icon: Package, path: '/dashboard/products' },
-    { label: 'Bibliothèque', icon: FileText, path: '/dashboard/reports' },
-    { label: 'Connexions', icon: LinkIcon, path: '/dashboard/connections' },
+    { label: 'Vue d\'ensemble', path: '/dashboard/overview', icon: LayoutDashboard },
+    { label: 'Trafic', path: '/dashboard/traffic', icon: Globe },
+    { label: 'Produits', path: '/dashboard/products', icon: Package },
+    { label: 'Finance', path: '/dashboard/finance', icon: BarChart3 },
+    { label: 'Performance Ads', path: '/dashboard/ads', icon: Megaphone },
+    { label: 'Rapports', path: '/dashboard/reports', icon: BarChart3 },
+    { label: 'Connexions', path: '/dashboard/connections', icon: Plug },
+    { label: 'Paramètres', path: '/dashboard/settings', icon: Settings },
 ];
 
 export default function Sidebar() {
     const pathname = usePathname();
+    const router = useRouter();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
-
-    // Sync Logic
     const [isSyncing, setIsSyncing] = useState(false);
     const [syncProgress, setSyncProgress] = useState(0);
     const [syncStatus, setSyncStatus] = useState<'idle' | 'running' | 'done'>('idle');
 
+    // Poll sync status
     useEffect(() => {
-        let interval: NodeJS.Timeout;
-        if (isSyncing && syncProgress < 90) {
-            interval = setInterval(() => {
-                setSyncProgress(prev => Math.min(prev + (Math.random() * 10), 90));
-            }, 200);
+        let interval: any;
+        if (isSyncing || syncStatus === 'running') {
+            interval = setInterval(async () => {
+                try {
+                    const res = await fetch('/api/sync/status');
+                    const data = await res.json();
+
+                    if (data.status === 'running') {
+                        setSyncStatus('running');
+                        const remoteProgress = data.progress || 0;
+                        setSyncProgress(prev => Math.max(prev, remoteProgress));
+                    } else if (data.status === 'success' || data.status === 'done') {
+                        setSyncStatus('done');
+                        setIsSyncing(false);
+                        setSyncProgress(100);
+                        clearInterval(interval);
+
+                        if (data.jobStatus === 'partial_success') {
+                            console.warn(`Synchronisation terminée avec avertissements :\n${data.error || 'Certaines sources ont échoué.'}`);
+                        }
+
+                        setTimeout(() => window.location.reload(), 1500);
+                    } else if (data.status === 'error' || data.status === 'failed') {
+                        setSyncStatus('idle');
+                        setIsSyncing(false);
+                        clearInterval(interval);
+                        console.error(`Erreur de synchronisation :\n${data.error || 'Erreur inconnue'}`);
+                    }
+                } catch (e) {
+                    console.error("Sync poll error", e);
+                }
+            }, 1000);
         }
         return () => clearInterval(interval);
-    }, [isSyncing, syncProgress]);
+    }, [isSyncing, syncStatus]);
 
     const handleSync = async () => {
-        if (isSyncing || syncStatus === 'running') return; // Security Check
+        if (isSyncing || syncStatus === 'running') return;
 
+        setIsMenuOpen(false);
         setIsSyncing(true);
         setSyncStatus('running');
-        setSyncProgress(0);
+        setSyncProgress(5);
 
         try {
-            const res = await fetch('/api/sync', {
+            await fetch('/api/sync', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ fullSync: true })
+                body: JSON.stringify({ fullSync: false })
             });
-            if (res.ok) {
-                setSyncProgress(100);
-                setSyncStatus('done');
-                setTimeout(() => {
-                    window.location.reload();
-                }, 800);
-            } else {
-                alert("Erreur Sync.");
-                setIsSyncing(false);
-                setSyncStatus('idle');
-            }
         } catch (e) {
-            alert("Erreur réseau.");
+            console.error("Trigger sync failed", e);
             setIsSyncing(false);
             setSyncStatus('idle');
         }
@@ -81,57 +96,48 @@ export default function Sidebar() {
 
     return (
         <>
-            {/* Circular Menu Overlay */}
-            <CircularMenu
-                isOpen={isMenuOpen}
-                onClose={() => setIsMenuOpen(false)}
-                onSync={() => { handleSync(); setIsMenuOpen(false); }}
-                isSyncing={isSyncing}
-            />
+            {/* Global Overlay Menu (Outside Sidebar DOM flow ideally, but absolute works if no transform on parent) */}
+            {isMenuOpen && (
+                <CircularMenu
+                    isOpen={isMenuOpen}
+                    onClose={() => setIsMenuOpen(false)}
+                    onSync={handleSync}
+                    isSyncing={isSyncing}
+                    syncProgress={syncProgress}
+                />
+            )}
 
-            <aside className={styles.sidebar}>
-                {/* LOGO AREA - Bigger & Interactive */}
-                <div className="relative h-24 flex items-center justify-center mb-4 cursor-pointer group" onClick={() => setIsMenuOpen(true)}>
-                    {/* Fluid Green Ring */}
-                    <svg className="absolute w-20 h-20 rotate-[-90deg]" viewBox="0 0 100 100">
-                        <circle cx="50" cy="50" r="46" stroke="#e5e7eb" strokeWidth="2" fill="none" />
-                        {isSyncing && (
-                            <circle
-                                cx="50" cy="50" r="46"
-                                stroke="#10b981"
-                                strokeWidth="4"
-                                fill="none"
-                                strokeDasharray="290"
-                                strokeDashoffset={290 - (290 * syncProgress) / 100}
-                                strokeLinecap="round"
-                                className="transition-all duration-300 ease-out"
-                            />
-                        )}
-                        {!isSyncing && (
-                            <circle
-                                cx="50" cy="50" r="46"
-                                stroke="#10b981"
-                                strokeWidth="2"
-                                fill="none"
-                                strokeDasharray="290"
-                                strokeDashoffset="290"
-                                className="group-hover:stroke-dashoffset-[0] transition-all duration-1000 ease-in-out opacity-50"
-                            />
-                        )}
-                    </svg>
+            <aside className={`${styles.sidebar} h-screen flex flex-col bg-white border-r border-gray-100`}>
 
-                    {/* Logo Image */}
-                    <div className="relative z-10 p-2 bg-white rounded-full shadow-sm group-hover:scale-105 transition-transform">
-                        <Image src="/brand/logopilot.png" alt="PILOT" width={48} height={48} className="object-contain" />
+                {/* Logo Section - Compact */}
+                <div className="flex flex-col items-center justify-center pt-3 pb-2 w-full shrink-0">
+                    <div className="relative w-28 h-28 flex items-center justify-center mb-2">
+                        <div className={`absolute inset-0 rounded-full border-2 border-gray-100 ${syncStatus === 'done' ? 'ring-2 ring-green-400 shadow-[0_0_20px_rgba(74,222,128,0.3)]' : ''}`}></div>
+
+                        {/* Green Spinner */}
+                        <svg className={`absolute inset-0 w-full h-full transition-all duration-1000 ${isSyncing ? 'animate-spin opacity-100 text-green-500' : 'opacity-0 text-gray-200'}`} viewBox="0 0 100 100">
+                            <circle cx="50" cy="50" r="46" fill="none" stroke="currentColor" strokeWidth="3" strokeDasharray="50 100" strokeLinecap="round" />
+                        </svg>
+
+                        <div
+                            className="relative z-10 bg-white rounded-full w-24 h-24 flex items-center justify-center shadow-sm border border-gray-120 cursor-pointer hover:scale-105 transition-transform"
+                            onClick={() => setIsMenuOpen(!isMenuOpen)}
+                        >
+                            <img
+                                src="/brand/logopilot.png"
+                                alt="PILOT"
+                                className="w-20 h-20 object-contain"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="text-center mt-2">
+                        <h1 className="font-montserrat font-semibold tracking-wide text-2xl text-[#1A1A1A]">PILOT</h1>
                     </div>
                 </div>
 
-                <div className="text-center mb-6">
-                    <span className="font-bold tracking-widest text-lg uppercase text-gray-900">PILOT</span>
-                    <div className="text-[10px] text-gray-400 font-mono">Boardroom BI</div>
-                </div>
-
-                <nav className={styles.nav}>
+                {/* Navigation - Flexible & Compact */}
+                <nav className="flex-1 px-3 w-full space-y-2 overflow-y-auto">
                     {MENU_ITEMS.map((item) => {
                         const Icon = item.icon;
                         const isActive = pathname === item.path;
@@ -139,71 +145,62 @@ export default function Sidebar() {
                             <Link
                                 href={item.path}
                                 key={item.path}
-                                className={`${styles.navItem} ${isActive ? styles.active : ''}`}
+                                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${isActive
+                                    ? 'bg-[#1A1A1A] text-white shadow-md'
+                                    : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
+                                    }`}
                             >
-                                <Icon size={20} />
+                                <Icon size={18} className={isActive ? 'text-white' : 'text-gray-400'} />
                                 <span>{item.label}</span>
                             </Link>
                         );
                     })}
                 </nav>
 
-                <div className={styles.footer}>
-                    {/* Sync Button / Progress Bar */}
-                    <div className="mb-4 px-4">
-                        <button
-                            onClick={handleSync}
-                            disabled={isSyncing}
-                            className={`w-full relative overflow-hidden h-10 rounded-lg flex items-center justify-center text-xs font-bold transition-all
-                                ${isSyncing
-                                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200'
-                                    : 'bg-black text-white hover:bg-gray-800 shadow-lg active:scale-95'
-                                }
-                            `}
-                        >
-                            {/* Progress Fill */}
-                            {isSyncing && (
-                                <div
-                                    className="absolute left-0 top-0 bottom-0 bg-green-100 transition-all duration-300"
-                                    style={{ width: `${syncProgress}%` }}
-                                ></div>
+                {/* Footer Actions */}
+                <div className="p-3 w-full shrink-0 space-y-3">
+
+                    {/* Sync Button: Progress Style */}
+                    <button
+                        onClick={handleSync}
+                        disabled={isSyncing}
+                        className="relative w-full h-10 bg-gray-100 rounded-lg overflow-hidden group shadow-sm hover:shadow-md transition-all active:scale-95"
+                    >
+                        {/* Background Progress */}
+                        {isSyncing && (
+                            <div
+                                className="absolute inset-0 bg-green-500 transition-all duration-700 ease-out"
+                                style={{ width: `${syncProgress}%` }}
+                            />
+                        )}
+
+                        {/* Content Layer */}
+                        <div className="absolute inset-0 flex items-center justify-center gap-2 z-10">
+                            {isSyncing ? (
+                                <>
+                                    <div className="w-3 h-3 border-2 border-white/60 border-t-white rounded-full animate-spin" />
+                                    <span className="text-xs font-bold text-white uppercase tracking-wider mix-blend-overlay">
+                                        Sync... {Math.round(syncProgress)}%
+                                    </span>
+                                </>
+                            ) : (
+                                <span className="text-xs font-bold text-gray-700 group-hover:text-black uppercase tracking-wider">UPDATE</span>
                             )}
+                        </div>
+                    </button>
 
-                            {/* Label */}
-                            <div className="relative z-10 flex items-center gap-2">
-                                {isSyncing ? (
-                                    <>
-                                        {syncProgress < 100 ? (
-                                            <>Synchronisation... {Math.round(syncProgress)}%</>
-                                        ) : (
-                                            <><Check size={14} className="text-green-600" /> Terminé</>
-                                        )}
-                                    </>
-                                ) : (
-                                    "⚡ Sync Données"
-                                )}
+                    {/* User Profile */}
+                    <Link href="/dashboard/account" className="block w-full">
+                        <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer border border-transparent hover:border-gray-100">
+                            <div className="w-8 h-8 rounded-full bg-[#1A1A1A] text-white flex items-center justify-center text-xs font-bold ring-2 ring-white shadow-sm">
+                                MV
                             </div>
-                        </button>
-                    </div>
-
-                    <div className={styles.user}>
-                        <Link href="/dashboard/account" className="flex items-center gap-3 no-underline text-inherit flex-1">
-                            <div className="w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold text-xs ring-2 ring-indigo-100">
-                                M
+                            <div className="flex flex-col overflow-hidden">
+                                <span className="font-semibold text-xs text-gray-900 truncate">M Vicario</span>
+                                <span className="text-[10px] text-gray-400 truncate">Administrateur</span>
                             </div>
-                            <div className="flex flex-col">
-                                <span className="text-sm font-bold leading-none">Mon Compte</span>
-                                <span className="text-[10px] text-gray-500">Premium</span>
-                            </div>
-                        </Link>
-                        <button
-                            onClick={() => signOut({ callbackUrl: '/login' })}
-                            className="p-2 text-gray-400 hover:text-red-500 transition-colors"
-                            title="Déconnexion"
-                        >
-                            <LogOut size={16} />
-                        </button>
-                    </div>
+                        </div>
+                    </Link>
                 </div>
             </aside>
         </>

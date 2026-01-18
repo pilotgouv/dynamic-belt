@@ -5,8 +5,6 @@ import { redirect } from 'next/navigation';
 import Image from 'next/image';
 import { LogOut, CreditCard, Shield, Activity, HardDrive, Smartphone, CheckCircle, Zap } from 'lucide-react';
 import Link from 'next/link';
-import DangerZoneClient from '@/components/account/DangerZoneClient';
-
 export const runtime = 'nodejs';
 
 async function getAccountData(userId: string, orgId: string) {
@@ -22,7 +20,13 @@ async function getAccountData(userId: string, orgId: string) {
 
     const connectionsCount = await prisma.connection.count({ where: { organizationId: orgId } });
 
-    return { user, org, connectionsCount };
+    const logs = await prisma.syncLog.findMany({
+        where: { organizationId: orgId },
+        orderBy: { startedAt: 'desc' },
+        take: 20
+    });
+
+    return { user, org, connectionsCount, logs };
 }
 
 export default async function AccountPage() {
@@ -32,24 +36,28 @@ export default async function AccountPage() {
     const userId = session.user.id as string;
     const orgId = (session.user as any).organizationId as string;
 
-    const { user, org, connectionsCount } = await getAccountData(userId, orgId);
+    const { user, org, connectionsCount, logs } = await getAccountData(userId, orgId);
 
     if (!user || !org) return <div>Error loading account.</div>;
 
-    const isPremium = true; // Force visual premium for everyone as requested "multi-connexion pour tout le monde"
+    const isPremium = true;
 
     return (
         <div style={{
             minHeight: '100vh',
             background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
-            padding: '4rem 2rem',
+            padding: '2rem 2rem',
             fontFamily: 'var(--font-sans)',
             color: '#1e293b'
         }}>
+            <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
+                {/* ID CARD HEADER (Existing) */}
+                {/* ... (Kept implicit by target logic if granular replace works, else I replace block) */}
+                {/* Status Grid (Existing) */}
 
-            <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+                {/* I will replace the main block to be safe */}
 
-                {/* ID CARD HEADER */}
+                {/* ... existing header code ... */}
                 <div className="bg-white rounded-3xl shadow-xl overflow-hidden border border-white/50 mb-8 relative">
                     <div className="h-32 bg-gradient-to-r from-indigo-600 to-blue-600"></div>
                     <div className="px-8 pb-8 relative">
@@ -164,11 +172,7 @@ export default async function AccountPage() {
                     </div>
                 </div>
 
-                <div className="mt-8">
-                    <DangerZoneClient />
-                </div>
-
             </div>
-        </div >
+        </div>
     );
 }

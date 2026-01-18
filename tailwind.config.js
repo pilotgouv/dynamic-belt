@@ -11,6 +11,11 @@ module.exports = {
                 background: "var(--background)",
                 foreground: "var(--foreground)",
             },
+            fontFamily: {
+                sans: ['var(--font-inter)'],
+                audiowide: ['var(--font-audiowide)'],
+                montserrat: ['var(--font-montserrat)'],
+            },
         },
     },
     plugins: [],

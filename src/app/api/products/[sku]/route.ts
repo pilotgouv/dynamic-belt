@@ -1,10 +1,9 @@
-
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { BusinessEngine } from "@/lib/engine";
+import { recalculateProductHistory } from "@/services/productService";
 
-export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest, props: { params: Promise<{ sku: string }> }) {
     const params = await props.params;
@@ -29,9 +28,9 @@ export async function GET(req: NextRequest, props: { params: Promise<{ sku: stri
 
         const settingsRec = await prisma.settings.findUnique({ where: { organizationId: orgId } });
         const settings = {
-            cogsPercent: settingsRec?.cogsEstimatedPercent || 40,
-            feesPercent: settingsRec?.platformFeesPercent || 15,
-            shippingAvg: settingsRec?.shippingCostAvg || 0
+            cogsPercent: settingsRec?.estimateCogsFallback || 40,
+            feesPercent: settingsRec?.paymentFeePercent || 0,
+            shippingAvg: settingsRec?.shippingCostValue || 0
         };
 
         // 2. Fetch Daily Aggregates for Time Series
@@ -72,6 +71,14 @@ export async function GET(req: NextRequest, props: { params: Promise<{ sku: stri
         let calcProfit = 0;
         const channels: Record<string, any> = {};
 
+        // Helper to get number from Decimal or number
+        const getCost = (p: any): number | null => {
+            if (!p?.costUnit) return null;
+            if (typeof p.costUnit === 'object' && 'toNumber' in p.costUnit) return p.costUnit.toNumber();
+            return Number(p.costUnit);
+        };
+        const realCostUnit = getCost(productMeta);
+
         if (orderItems.length > 0) {
             orderItems.forEach(item => {
                 const ch = item.order.provider;
@@ -82,7 +89,7 @@ export async function GET(req: NextRequest, props: { params: Promise<{ sku: stri
                 // COGS: Use Item's Allocated OR Product's Fixed Cost OR Global % estimate
                 let cogs = item.cogsAllocated;
                 if (cogs === 0) {
-                    if (productMeta?.costUnit) cogs = productMeta.costUnit * item.quantity;
+                    if (realCostUnit !== null) cogs = realCostUnit * item.quantity;
                     else cogs = rev * (settings.cogsPercent / 100);
                 }
 
@@ -110,7 +117,7 @@ export async function GET(req: NextRequest, props: { params: Promise<{ sku: stri
             // Fallback to ProductDaily aggregates if no granular items
             calcRevenue = totalRevenue;
 
-            if (productMeta?.costUnit) calcCogs = productMeta.costUnit * totalUnits;
+            if (realCostUnit !== null) calcCogs = realCostUnit * totalUnits;
             else calcCogs = totalRevenue * (settings.cogsPercent / 100);
 
             calcFees = totalRevenue * (settings.feesPercent / 100);
@@ -151,7 +158,10 @@ export async function GET(req: NextRequest, props: { params: Promise<{ sku: stri
         if (channelBreakdown.length === 1) insights.push({ type: 'info', text: `Dépendance totale à ${channelBreakdown[0].channel}.` });
 
         return NextResponse.json({
-            meta: productMeta,
+            meta: {
+                ...productMeta,
+                costUnit: realCostUnit // Ensure simple number is sent to frontend
+            },
             summary: {
                 revenue: totalRevenue,
                 units: totalUnits,
@@ -166,6 +176,43 @@ export async function GET(req: NextRequest, props: { params: Promise<{ sku: stri
 
     } catch (e: any) {
         console.error(e);
+        return NextResponse.json({ error: e.message }, { status: 500 });
+    }
+}
+
+export async function PUT(req: NextRequest, props: { params: Promise<{ sku: string }> }) {
+    const params = await props.params;
+    const session = await auth();
+    const user = session?.user as any;
+    if (!user || (!user.organizationId && !user.orgId)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const orgId = user.organizationId || user.orgId;
+    const sku = params.sku;
+
+    try {
+        const body = await req.json();
+        const { costUnit } = body;
+
+        // Validation
+        if (typeof costUnit !== 'number') {
+            return NextResponse.json({ error: "Invalid cost (must be number)" }, { status: 400 });
+        }
+
+        // 1. Update Product Master Data
+        const updatedProduct = await prisma.product.update({
+            where: { orgId_sku: { orgId, sku } },
+            data: { costUnit: costUnit }
+        });
+
+        // 2. Trigger async recalculation for historical data (ProductDaily)
+        // We await it here for the user feedback loop to be instant (they want "Vrai Profit" to update everywhere)
+        await recalculateProductHistory(orgId, sku, costUnit);
+
+        // Return simpler response as it is Float now
+        return NextResponse.json({ success: true, product: updatedProduct });
+
+    } catch (e: any) {
+        console.error("Error updating COGS:", e);
         return NextResponse.json({ error: e.message }, { status: 500 });
     }
 }

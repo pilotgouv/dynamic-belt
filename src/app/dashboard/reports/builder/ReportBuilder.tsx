@@ -74,7 +74,8 @@ export default function ReportBuilder({ organizationId }: ReportBuilderProps) {
             }
 
             setShowSaveModal(false);
-            router.push('/reports'); // Redirect to library after save
+            setShowSaveModal(false);
+            router.push('/dashboard/reports'); // Redirect to library after save
             router.refresh();
 
         } catch (e: any) {
@@ -92,28 +93,28 @@ export default function ReportBuilder({ organizationId }: ReportBuilderProps) {
                 </h3>
 
                 <div style={{ marginBottom: '1.5rem' }}>
-                    <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--muted)', marginBottom: '0.5rem', fontWeight: 500 }}>Date Range</label>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                    <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--muted)', marginBottom: '0.5rem', fontWeight: 500 }}>Période</label>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                         <input type="date" value={config.range.start}
                             onChange={e => setConfig({ ...config, range: { ...config.range, start: e.target.value } })}
-                            style={{ width: '100%', padding: '0.6rem', border: '1px solid var(--border)', borderRadius: '6px', background: 'var(--bg)', color: 'var(--text)' }}
+                            style={{ width: '100%', padding: '0.6rem', border: '1px solid var(--border)', borderRadius: '6px', background: 'var(--bg)', color: 'var(--text)', boxSizing: 'border-box' }}
                         />
                         <input type="date" value={config.range.end}
                             onChange={e => setConfig({ ...config, range: { ...config.range, end: e.target.value } })}
-                            style={{ width: '100%', padding: '0.6rem', border: '1px solid var(--border)', borderRadius: '6px', background: 'var(--bg)', color: 'var(--text)' }}
+                            style={{ width: '100%', padding: '0.6rem', border: '1px solid var(--border)', borderRadius: '6px', background: 'var(--bg)', color: 'var(--text)', boxSizing: 'border-box' }}
                         />
                     </div>
                 </div>
 
                 <div style={{ marginBottom: '2rem' }}>
-                    <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--muted)', marginBottom: '0.5rem', fontWeight: 500 }}>Granularity</label>
+                    <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--muted)', marginBottom: '0.5rem', fontWeight: 500 }}>Granularité</label>
                     <select value={config.granularity}
                         onChange={e => setConfig({ ...config, granularity: e.target.value as any })}
                         style={{ width: '100%', padding: '0.75rem', border: '1px solid var(--border)', borderRadius: '6px', background: 'var(--bg)', color: 'var(--text)' }}
                     >
-                        <option value="day">Daily</option>
-                        <option value="week">Weekly</option>
-                        <option value="month">Monthly</option>
+                        <option value="day">Quotidien (Jour par Jour)</option>
+                        <option value="week">Hebdomadaire</option>
+                        <option value="month">Mensuel</option>
                     </select>
                 </div>
 
@@ -126,7 +127,7 @@ export default function ReportBuilder({ organizationId }: ReportBuilderProps) {
                     }}
                 >
                     <Play size={18} fill="currentColor" />
-                    {loading ? 'Processing...' : 'Generate Report'}
+                    {loading ? 'Traitement...' : 'Générer le rapport'}
                 </button>
             </div>
 
@@ -146,10 +147,10 @@ export default function ReportBuilder({ organizationId }: ReportBuilderProps) {
                         {/* Summary Cards */}
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
                             {[
-                                { label: 'Revenue', val: result.summary.total_revenue, fmt: 'currency' },
-                                { label: 'Ad Spend', val: result.summary.total_spend, fmt: 'currency' },
-                                { label: 'Net Profit', val: result.summary.total_profit, fmt: 'currency', color: true },
-                                { label: 'Margin', val: result.summary.global_margin, fmt: 'percent' },
+                                { label: 'Chiffre d\'Affaires', val: result.summary.total_revenue, fmt: 'currency' },
+                                { label: 'Dépenses Pubs', val: result.summary.total_spend, fmt: 'currency' },
+                                { label: 'Profit Net', val: result.summary.total_profit, fmt: 'currency', color: true },
+                                { label: 'Marge', val: result.summary.global_margin, fmt: 'percent' },
                             ].map((kpi, i) => (
                                 <div key={i} style={{ background: 'var(--surface)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border)' }}>
                                     <div style={{ fontSize: '0.8rem', color: 'var(--muted)', marginBottom: '0.4rem' }}>{kpi.label}</div>
@@ -168,7 +169,7 @@ export default function ReportBuilder({ organizationId }: ReportBuilderProps) {
 
                         {/* Action Bar */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                            <h3 style={{ fontSize: '1.2rem', fontWeight: 600 }}>Results</h3>
+                            <h3 style={{ fontSize: '1.2rem', fontWeight: 600 }}>Résultats</h3>
                             <button onClick={() => setShowSaveModal(true)}
                                 style={{
                                     display: 'flex', alignItems: 'center', gap: '6px',
@@ -176,7 +177,7 @@ export default function ReportBuilder({ organizationId }: ReportBuilderProps) {
                                     borderRadius: '6px', fontSize: '0.9rem', cursor: 'pointer'
                                 }}
                             >
-                                <Save size={16} /> Save Report
+                                <Save size={16} /> Sauvegarder
                             </button>
                         </div>
 
@@ -186,10 +187,10 @@ export default function ReportBuilder({ organizationId }: ReportBuilderProps) {
                                 <thead style={{ background: 'var(--surface-2)', borderBottom: '1px solid var(--border)' }}>
                                     <tr>
                                         <th style={{ padding: '0.8rem', textAlign: 'left' }}>Date</th>
-                                        <th style={{ padding: '0.8rem', textAlign: 'right' }}>Revenue</th>
-                                        <th style={{ padding: '0.8rem', textAlign: 'right' }}>Spend</th>
+                                        <th style={{ padding: '0.8rem', textAlign: 'right' }}>CA</th>
+                                        <th style={{ padding: '0.8rem', textAlign: 'right' }}>Dépensé</th>
                                         <th style={{ padding: '0.8rem', textAlign: 'right' }}>Profit</th>
-                                        <th style={{ padding: '0.8rem', textAlign: 'right' }}>Margin</th>
+                                        <th style={{ padding: '0.8rem', textAlign: 'right' }}>Marge</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -223,11 +224,11 @@ export default function ReportBuilder({ organizationId }: ReportBuilderProps) {
                         borderRadius: '16px', border: '1px solid var(--border)',
                         boxShadow: 'var(--shadow-lg)'
                     }}>
-                        <h3 style={{ marginTop: 0, fontSize: '1.2rem' }}>Save to Library</h3>
-                        <p style={{ color: 'var(--muted)', fontSize: '0.9rem', marginBottom: '1.5rem' }}>Give this report a name to easily access it later.</p>
+                        <h3 style={{ marginTop: 0, fontSize: '1.2rem' }}>Sauvegarder dans la bibliothèque</h3>
+                        <p style={{ color: 'var(--muted)', fontSize: '0.9rem', marginBottom: '1.5rem' }}>Donnez un nom à ce rapport pour le retrouver plus tard.</p>
 
                         <input value={reportName} onChange={e => setReportName(e.target.value)}
-                            placeholder="e.g. Weekly Profit & Loss" autoFocus
+                            placeholder="ex: Rapport Hebdo P&L" autoFocus
                             style={{
                                 width: '100%', padding: '0.75rem', marginBottom: '1.5rem',
                                 border: '1px solid var(--border)', borderRadius: '8px',
@@ -249,7 +250,7 @@ export default function ReportBuilder({ organizationId }: ReportBuilderProps) {
                                     border: 'none', borderRadius: '6px', cursor: 'pointer',
                                     color: 'white', fontWeight: 600
                                 }}
-                            >Save Report</button>
+                            >Enregistrer</button>
                         </div>
                     </div>
                 </div>

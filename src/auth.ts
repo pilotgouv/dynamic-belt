@@ -3,9 +3,10 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import { authConfig } from "./auth.config";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-    adapter: PrismaAdapter(prisma),
+    ...authConfig,
     session: { strategy: "jwt" }, // Vital for credentials provider
     providers: [
         CredentialsProvider({
@@ -42,30 +43,5 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             },
         }),
     ],
-    pages: {
-        signIn: '/login',
-    },
     debug: process.env.NODE_ENV !== 'production',
-    trustHost: true,
-    secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || "temp_secret_change_me_in_prod_urgently",
-    callbacks: {
-        async session({ session, token }: any) {
-            if (token) {
-                session.user.id = token.sub;
-                session.user.role = token.role;
-                session.user.plan = token.plan;
-                session.user.organizationId = token.organizationId;
-            }
-            return session;
-        },
-        async jwt({ token, user }: any) {
-            if (user) {
-                token.role = (user as any).role;
-                token.id = user.id;
-                token.plan = (user as any).plan;
-                token.organizationId = (user as any).organizationId;
-            }
-            return token;
-        }
-    }
 });

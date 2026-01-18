@@ -12,7 +12,7 @@ export interface ConnectorResult {
     // Aggregated (Legacy / Quick View)
     financeMetrics: Partial<FinanceDailyMetric>[];
     productMetrics: Partial<ProductDailyMetric>[];
-    adsMetrics?: any[];
+    adsMetrics?: DailyAdMetric[]; // New: Ads specific metrics
     trafficMetrics?: any[];
 
     // Normalized (Source of Truth)
@@ -23,6 +23,13 @@ export interface ConnectorResult {
 
     // Metadata updates
     providerMetadata?: Record<string, any>;
+
+    // Granular Meta Payload ("Pilot-ready")
+    rawMetaPayload?: {
+        metaAccountId?: string;
+        campaigns: any[];
+        insights: any[];
+    };
 }
 
 export interface DataSourceConnector {
@@ -30,7 +37,21 @@ export interface DataSourceConnector {
     capabilities: ConnectorCapability[];
 
     connect(credentials: any): Promise<boolean>;
-    sync(fromDate: Date, toDate: Date, options?: { fullSync?: boolean }): Promise<ConnectorResult>;
+    sync(fromDate: Date, toDate: Date, options?: { fullSync?: boolean, deepSync?: boolean, limit?: number, onProgress?: (msg: string, pct?: number) => void }): Promise<ConnectorResult>;
     validateToken(): Promise<boolean>;
     disconnect?(): Promise<boolean>; // Cleanup
+}
+
+export interface DailyAdMetric {
+    date: string;       // YYYY-MM-DD
+    channel: string;    // google_ads, meta_ads, tiktok_ads
+    campaign?: string;
+    adGroup?: string;
+    spend: number;
+    impressions: number;
+    clicks: number;
+    conversions: number;
+    conversionValue: number;
+    roas?: number;
+    cpa?: number;
 }

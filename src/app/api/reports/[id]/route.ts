@@ -29,6 +29,8 @@ export async function DELETE(req: NextRequest, { params }: { params: any }) {
     const session = await auth();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+    // Manually delete related runs first to avoid foreign key constraint errors
+    await prisma.reportRun.deleteMany({ where: { reportDefinitionId: id } });
     await prisma.reportDefinition.delete({ where: { id } });
 
     return NextResponse.json({ success: true });

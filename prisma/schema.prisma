@@ -30,6 +30,7 @@ model Organization {
   memberships   Membership[]
   connections   Connection[]
   syncLogs      SyncLog[] // Added
+  syncJobs      SyncJob[] // Added
   settings      Settings?
   financeDaily  FinanceDaily[]
   adsDaily      AdsDaily[]
@@ -42,9 +43,14 @@ model Organization {
   orders        Order[]
   products      Product[]
   adAccounts    AdAccount[]
-  adMetrics     AdDailyMetrics[]
+  adMetrics     AdDailyMetrics[] // Legacy-ish but useful
   settlements   SettlementEvent[]
   pilotScores   PilotScoreDaily[]
+  
+  // Meta Granular Data
+  metaCampaigns MetaCampaign[]
+  metaInsights  MetaInsight[]
+
 }
 
 // 5. Reporting Engine (V2.5)
@@ -67,7 +73,7 @@ model ReportDefinition {
 model ReportRun {
   id                 String           @id @default(uuid())
   reportDefinitionId String
-  reportDefinition   ReportDefinition @relation(fields: [reportDefinitionId], references: [id])
+  reportDefinition   ReportDefinition @relation(fields: [reportDefinitionId], references: [id], onDelete: Cascade)
   
   runAt              DateTime         @default(now())
   startDate          DateTime
@@ -111,6 +117,7 @@ enum ConnectionStatus {
   ACTIVE
   DISABLED
   ERROR
+  NEEDS_SYNC
 }
 
 model Connection {
@@ -127,6 +134,9 @@ model Connection {
   
   lastTestAt     DateTime?
   lastSyncAt     DateTime?
+  lastFullSyncAt  DateTime? // Added for Sync V2
+  lastQuickSyncAt DateTime? // Added for Sync V2
+  lastCursor      String?   // ISO string of max(date_modified)
   lastSyncStatus String?
   lastSyncError  String?
   errorMessage   String?
@@ -168,17 +178,62 @@ model SyncLog {
   organization    Organization @relation(fields: [organizationId], references: [id])
 }
 
+model SyncJob {
+  id             String       @id @default(uuid())
+  orgId          String
+  type           String       // quick, full
+  status         String       // queued, running, success, error
+  progress       Int          @default(0)
+  stage          String?
+  message        String?
+  startedAt      DateTime     @default(now())
+  finishedAt     DateTime?
+  error          String?
+  
+  organization   Organization @relation(fields: [orgId], references: [id])
+}
+
 // 3. User Settings & Cost Profile (Existing)
+// 3. User Settings & Cost Profile (Control Center)
 model Settings {
   id                   String       @id @default(uuid())
+  
+  // Fiscal & Display
   currency             String       @default("EUR")
-  platformFeesPercent  Float        @default(2.9)
-  shippingCostAvg      Float        @default(0)
-  returnRatePercent    Float        @default(0)
-  cogsEstimatedPercent Float        @default(40)
+  vatEnabled           Boolean      @default(false)
+  vatMode              String       @default("HT") // HT, TTC
+  vatRate              Float        @default(0.20)
+  
+  // Costs & Fees
+  shippingCostMode     String       @default("NONE") // NONE, FIXED_PER_ORDER, PERCENT_REVENUE
+  shippingCostValue    Float        @default(0)
+  
+  paymentFeePercent    Float        @default(0)
+  paymentFeeFixed      Float        @default(0)
+  
+  // Deprecated / Legacy (Keep for migration safety if needed, or remove if confident. keeping maps to new requirements)
+  // platformFeesPercent (mapped to paymentFeePercent)
+  // shippingCostAvg (mapped to shippingCostValue)
+  // cogsEstimatedPercent (mapped to estimateCogsFallback)
+  
+  // Data Behavior
+  dataMode             String       @default("STRICT") // STRICT, ESTIMATE
+  estimateCogsFallback Float        @default(0)        // Used if dataMode=ESTIMATE and costUnit is missing
+  estimateShippingFallback Float    @default(0)
+  
+  // Targets / Health
   minRoasTarget        Float        @default(2.5)
   minMarginTarget      Float        @default(20)
-
+  
+  // Automation
+  syncEnabled          Boolean      @default(false)
+  syncFrequency        String       @default("DAILY") // DAILY, HOURLY
+  syncPreferredHour    Int          @default(6)       // 0-23
+  
+  reportWeeklyEnabled  Boolean      @default(false)
+  reportMonthlyEnabled Boolean      @default(false)
+  reportRecipients     Json?        // ["email@example.com"]
+  
   organizationId       String       @unique
   organization         Organization @relation(fields: [organizationId], references: [id])
 }
@@ -213,6 +268,7 @@ model AdsDaily {
   id              String       @id @default(uuid())
   date            DateTime     @db.Date
   channel         String       // google_ads, meta_ads, etc.
+  campaign        String       @default("global")
   spend           Float        @default(0)
   impressions     Int          @default(0)
   clicks          Int          @default(0)
@@ -224,7 +280,7 @@ model AdsDaily {
   organizationId  String
   organization    Organization @relation(fields: [organizationId], references: [id])
 
-  @@unique([organizationId, date, channel])
+  @@unique([organizationId, date, channel, campaign])
 }
 
 model TrafficDaily {
@@ -287,6 +343,7 @@ model Order {
   currency           String     @default("EUR")
   createdAtSource    DateTime
   paidAtSource       DateTime?
+  metadata           Json?      // Store raw source/medium/referrer data
   
   // Financials
   grossRevenue       Float      @default(0)
@@ -352,6 +409,7 @@ model Product {
   status            String    // ACTIVE, ARCHIVED
   
   costUnit          Float?    // User entered COGS
+  costDetails       Json?     // Detailed Breakdown
   stockLevel        Int?      // From inventory sync
   
   createdAtSource   DateTime?
@@ -397,6 +455,58 @@ model AdCampaign {
   adAccount          AdAccount  @relation(fields: [adAccountId], references: [id])
   
   @@unique([orgId, provider, externalId])
+}
+
+// --- NEW META STRUCTURE ---
+
+model MetaCampaign {
+  id             String @id // Meta ID (numeric string)
+  orgId          String
+  accountId      String // Ad Account ID
+  name           String
+  status         String?
+  objective      String?
+  buyingType     String?
+  
+  insights       MetaInsight[]
+  
+  organization   Organization @relation(fields: [orgId], references: [id])
+  @@index([orgId])
+}
+
+model MetaInsight {
+  id                String   @id @default(uuid())
+  orgId             String
+  date              DateTime @db.Date
+  
+  campaignId        String
+  campaign          MetaCampaign @relation(fields: [campaignId], references: [id])
+  
+  // Dimensions
+  breakdownType     String   // 'PLATFORM', 'DEVICE', 'GLOBAL'
+  publisherPlatform String   @default("global") // facebook, instagram, matches user spec conceptually but safer for DB
+  devicePlatform    String   @default("global") // mobile, desktop
+  
+  // Metrics
+  spend             Float    @default(0)
+  impressions       Int      @default(0)
+  clicks            Int      @default(0)
+  ctr               Float    @default(0)
+  cpc               Float    @default(0)
+  cpm               Float    @default(0)
+  
+  // Conversions
+  actionsJson       Json?    // Raw actions
+  actionValuesJson  Json?    // Raw values
+  
+  purchases         Int      @default(0)
+  purchaseValue     Float    @default(0)
+  
+  organization      Organization @relation(fields: [orgId], references: [id])
+  
+  // Unique Constraint to prevent duplication for a given view
+  @@unique([campaignId, date, breakdownType, publisherPlatform, devicePlatform])
+  @@index([orgId, date])
 }
 
 model AdDailyMetrics {

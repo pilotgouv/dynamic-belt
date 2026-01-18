@@ -65,8 +65,27 @@ export default function FinanceView({ orgId }: FinanceViewProps) {
         );
     }
 
+    const isStrictZeroCogs = data?.confidence === 'EXACT' && summary.total_cogs === 0 && summary.total_revenue > 0;
+
     return (
         <div className="p-8 max-w-[1600px] mx-auto space-y-8 animate-in fade-in duration-500">
+
+            {/* Strict Mode Safety Warning */}
+            {isStrictZeroCogs && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center justify-between text-red-800 shadow-sm animate-pulse-slow">
+                    <div className="flex items-center gap-3">
+                        <div className="bg-red-200 p-2 rounded-full"><Wallet size={20} className="text-red-700" /></div>
+                        <div>
+                            <span className="font-bold flex items-center gap-2">Attention : Mode Strict activé mais aucun coût détecté.</span>
+                            <p className="text-sm opacity-90 mt-0.5">Vos profits affichés sont bruts car aucun COGS n'a été trouvé. Veuillez ajouter des coûts à vos produits ou passer en mode Estimation.</p>
+                        </div>
+                    </div>
+                    <a href="/dashboard/settings" className="px-4 py-2 bg-white border border-red-200 text-red-700 font-bold text-sm rounded hover:bg-red-50 transition-colors">
+                        Modifier
+                    </a>
+                </div>
+            )}
+
             {/* KPI Row */}
             <div className="grid grid-cols-5 gap-4">
                 <KPICard title="Ventes Brutes" value={summary.total_revenue ? formatCurrency(summary.total_revenue) : '-'} loading={loading} />

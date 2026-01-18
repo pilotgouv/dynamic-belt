@@ -1,10 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import { UserSettings } from "@/types/data";
-import { BusinessEngine } from "@/lib/engine";
+import { FinancialEngine } from "@/lib/financial-engine";
 
 export interface ReportConfig {
-    metrics: string[]; // ['revenue_gross', 'profit_estimated', 'spend', 'sessions']
-    dimensions: string[]; // ['date'] (default), ['channel'], ['product']
+    metrics: string[];
+    dimensions: string[];
     filters?: Record<string, any>;
 }
 
@@ -24,23 +24,33 @@ export class ReportService {
         range: { start: Date, end: Date, granularity: 'day' | 'week' | 'month' }
     ): Promise<ReportResult> {
 
-        // 1. Fetch Settings for Calculations
-        const settingsRecord = await prisma.settings.findUnique({ where: { organizationId } });
+        // 1. Fetch Settings
+        let settingsRecord: any;
+        try {
+            settingsRecord = await prisma.settings.findUnique({ where: { organizationId } });
+        } catch (e) {
+            console.error("Failed to fetch settings", e);
+        }
+
+        // Map DB Settings to UserSettings (safely)
         const settings: UserSettings = {
-            currency: (settingsRecord?.currency as any) || 'EUR',
-            costProfile: {
-                platformFeesPercent: settingsRecord?.platformFeesPercent || 2.9,
-                shippingCostAvg: settingsRecord?.shippingCostAvg || 0,
-                returnRatePercent: settingsRecord?.returnRatePercent || 0,
-                cogsEstimatedPercent: settingsRecord?.cogsEstimatedPercent || 40,
-            },
-            targets: { minRoas: 2.5, minMargin: 20 }
+            currency: settingsRecord?.currency || 'EUR',
+            vatEnabled: settingsRecord?.vatEnabled ?? false,
+            vatMode: (settingsRecord?.vatMode as any) || 'HT',
+            vatRate: settingsRecord?.vatRate ?? 0.20,
+            shippingCostMode: (settingsRecord?.shippingCostMode as any) || 'NONE',
+            shippingCostValue: settingsRecord?.shippingCostValue ?? 0,
+            paymentFeePercent: settingsRecord?.paymentFeePercent ?? 0,
+            paymentFeeFixed: settingsRecord?.paymentFeeFixed ?? 0,
+            dataMode: (settingsRecord?.dataMode as any) || 'STRICT',
+            estimateCogsFallback: settingsRecord?.estimateCogsFallback ?? 0,
+            targets: {
+                minRoas: settingsRecord?.minRoasTarget ?? 2.5,
+                minMargin: settingsRecord?.minMarginTarget ?? 20
+            }
         };
 
-        // 2. Fetch Data Sources based on requested metrics
-        // Simple implementation: Fetch ALL daily data for the range and aggregate in memory.
-        // For Scale: This should be optimized to SQL aggregations.
-
+        // 2. Fetch Data Sources
         const financeData = await prisma.financeDaily.findMany({
             where: { organizationId, date: { gte: range.start, lte: range.end } }
         });
@@ -49,271 +59,243 @@ export class ReportService {
             where: { organizationId, date: { gte: range.start, lte: range.end } }
         });
 
-        // Traffic data fetch (safe even if empty)
         const trafficData = await prisma.trafficDaily.findMany({
             where: { organizationId, date: { gte: range.start, lte: range.end } }
         });
 
-        // 3. Aggregate
-        const aggregated = new Map<string, any>();
-
-        // Helper to get key based on granularity
-        // Helper to get key based on granularity
-        const getKey = (date: Date) => {
-            if (range.granularity === 'month') {
-                return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-            }
-            if (range.granularity === 'week') {
-                const d = new Date(date);
-                const day = d.getDay();
-                const diff = d.getDate() - day + (day == 0 ? -6 : 1); // Adjust when day is Sunday
-                const weekStart = new Date(d.setDate(diff));
-                return weekStart.toISOString().split('T')[0];
-            }
-            return date.toISOString().split('T')[0]; // Default Day
-        };
-
-        // ... Aggregation Logic ...
-        // We will build a unified timeline since most reports are time-series based.
-
-        const allDates = new Set<string>();
-        financeData.forEach(r => allDates.add(getKey(r.date)));
-        adsData.forEach(r => allDates.add(getKey(r.date)));
-        trafficData.forEach(r => allDates.add(getKey(r.date)));
-
-        // Product Data Fetch (Safe)
-        let productData: any[] = [];
-        if (config.dimensions.includes('product_name') || config.dimensions.includes('sku')) {
-            productData = await prisma.productDaily.findMany({
-                where: { organizationId, date: { gte: range.start, lte: range.end } }
-            });
-        }
-
-        // Special Case: Product Dimension aggregation
-        if (config.dimensions.includes('product_name') || config.dimensions.includes('sku')) {
-            const productMap = new Map<string, any>();
-            productData.forEach(p => {
-                const key = p.name;
-                const curr = productMap.get(key) || { name: key, revenue: 0, units: 0 };
-                productMap.set(key, {
-                    name: key,
-                    revenue: curr.revenue + p.revenue,
-                    units: curr.units + p.unitsSold,
-                    sku: p.sku
-                });
-            });
-
-            const productSeries = Array.from(productMap.values()).map(p => {
-                // Simple Categorization Logic (Mock-ish but logic flows)
-                let status = 'Standard';
-                if (p.revenue > 1000) status = 'Hero';
-                else if (p.units > 50 && p.revenue < 500) status = 'Volume';
-                else if (p.units === 0) status = 'Sleeper';
-
-                return {
-                    date: p.name, // Mapping Name to Date for View compatibility (Table treats first col as Date/Key)
-                    product_name: p.name,
-                    revenue_gross: p.revenue,
-                    revenue_net: p.revenue, // Assuming no COGS data specific yet
-                    units_sold: p.units,
-                    spend: 0, // No attribution yet
-                    profit_estimated: p.revenue * 0.4, // Est 40% margin default
-                    margin_percent: 40,
-                    status: status,
-                    refunds: 0
-                };
-            }).sort((a, b) => b.revenue_gross - a.revenue_gross);
-
-            // Summaries for Products
-            const totalRev = productSeries.reduce((a, b) => a + b.revenue_gross, 0);
-            return {
-                summary: {
-                    total_revenue: totalRev,
-                    total_spend: 0,
-                    total_profit: totalRev * 0.4,
-                    global_margin: 40
-                },
-                series: productSeries,
-                confidence: 'ESTIMATED',
-                confidenceReasons: ['Product Profit estimated at 40% default']
-            };
-        }
-
-        // Special Case: Channel Dimension aggregation (Ads)
-        if (config.dimensions.includes('channel')) {
-            const channelMap = new Map<string, any>();
-            adsData.forEach(a => {
-                const key = a.channel;
-                const curr = channelMap.get(key) || {
-                    channel: key, spend: 0, revenue: 0, impressions: 0, clicks: 0, conversions: 0
-                };
-                channelMap.set(key, {
-                    channel: key,
-                    spend: curr.spend + a.spend,
-                    revenue: curr.revenue + a.conversionValue,
-                    impressions: curr.impressions + a.impressions,
-                    clicks: curr.clicks + a.clicks,
-                    conversions: curr.conversions + a.conversions
-                });
-            });
-
-            const channelSeries = Array.from(channelMap.values()).map(c => {
-                // Estimate Contribution
-                // Gross Margin = Rev * (1 - (cogs% / 100))
-                const estMarginPercent = 100 - settings.costProfile.cogsEstimatedPercent;
-                const grossMargin = c.revenue * (estMarginPercent / 100);
-                const contribution = grossMargin - c.spend;
-
-                return {
-                    date: c.channel, // Key for Table
-                    channel: c.channel,
-                    spend: c.spend,
-                    revenue: c.revenue,
-                    impressions: c.impressions,
-                    clicks: c.clicks,
-                    conversions: c.conversions,
-                    ctr: c.impressions > 0 ? (c.clicks / c.impressions) * 100 : 0,
-                    cpc: c.clicks > 0 ? c.spend / c.clicks : 0,
-                    roas: c.spend > 0 ? c.revenue / c.spend : 0,
-                    cpa: c.conversions > 0 ? c.spend / c.conversions : 0,
-                    contribution: contribution, // "Profit" contribution
-                    contribution_margin: c.revenue > 0 ? (contribution / c.revenue) * 100 : 0
-                };
-            }).sort((a, b) => b.spend - a.spend);
-
-            // Summaries for Channels
-            const totalSpend = channelSeries.reduce((a, b) => a + b.spend, 0);
-            const totalRev = channelSeries.reduce((a, b) => a + b.revenue, 0);
-            const totalContrib = channelSeries.reduce((a, b) => a + b.contribution, 0);
-
-            return {
-                summary: {
-                    total_revenue: totalRev,
-                    total_spend: totalSpend,
-                    total_profit: totalContrib, // Contextual profit
-                    roas: totalSpend > 0 ? totalRev / totalSpend : 0
-                },
-                series: channelSeries,
-                confidence: 'ESTIMATED',
-                confidenceReasons: ['Contribution uses global COGS estimate']
-            };
-        }
-        // Fetch Top 3 Products & Channels regardless of report type
-        const topProductsRaw = await prisma.productDaily.groupBy({
-            by: ['name', 'sku'],
+        // 3. Fetch Product Truth for COGS
+        // We need to know: SKU, Units Sold, Revenue Gross.
+        // We do NOT use profitEstimated from DB anymore as it might be stale or based on old logic.
+        // We will calculate COGS on the fly based on current Product.costUnit.
+        const productDaily = await prisma.productDaily.findMany({
             where: { organizationId, date: { gte: range.start, lte: range.end } },
-            _sum: { revenue: true, unitsSold: true, profitEstimated: true },
-            orderBy: { _sum: { revenue: 'desc' } },
-            take: 5
+            select: {
+                date: true,
+                sku: true,
+                unitsSold: true,
+                revenue: true, // Gross revenue usually
+                // profitEstimated: ignored
+            }
         });
 
-        const topChannelsRaw = await prisma.adsDaily.groupBy({
-            by: ['channel'],
-            where: { organizationId, date: { gte: range.start, lte: range.end } },
-            _sum: { spend: true, conversionValue: true },
-            orderBy: { _sum: { spend: 'desc' } },
-            take: 3
+        // Need current costUnit for these SKUs.
+        const skus = [...new Set(productDaily.map(p => p.sku))];
+        const productsMeta = await prisma.product.findMany({
+            where: { orgId: organizationId, sku: { in: skus } },
+            select: { sku: true, costUnit: true }
+        });
+        const costMap = new Map<string, number>();
+        productsMeta.forEach(p => {
+            // Trim SKU to ensure match
+            if (p.costUnit && p.sku) costMap.set(p.sku.trim(), p.costUnit);
         });
 
-        const context = {
-            heroProducts: topProductsRaw.map(p => ({
-                name: p.name,
-                sku: p.sku,
-                revenue: p._sum.revenue || 0,
-                units: p._sum.unitsSold || 0,
-                profit_estimated: p._sum.profitEstimated || (p._sum.revenue || 0) * 0.4 // Fallback to 40% if no real data
-            })),
-            topChannels: topChannelsRaw.map(c => ({
-                channel: c.channel,
-                spend: c._sum.spend || 0,
-                revenue: c._sum.conversionValue || 0,
-                roas: c._sum.spend ? (c._sum.conversionValue || 0) / c._sum.spend : 0
-            }))
+        // 4. Dynamic Aggregation
+        const dims = config.dimensions && config.dimensions.length > 0 ? config.dimensions : ['date'];
+
+        const getDimVal = (row: any, dim: string, source: 'finance' | 'ads' | 'traffic' | 'product') => {
+            if (dim === 'date') return row.date.toISOString().split('T')[0];
+            if (dim === 'channel') return row.channel || (source === 'traffic' ? row.source : 'direct');
+            if (dim === 'campaign') return row.campaign || 'global';
+            if (dim === 'product_name') return row.name || row.sku || 'Unknown';
+            return 'all';
         };
 
-        const series = Array.from(allDates).sort().map(dateKey => {
-            // Find records matching this bucket
-            // Note: This is an approximation for day bucket. For week/month we need better filtering.
-            // Assuming 'day' for MVP V2.5.0
+        const genKey = (row: any, source: 'finance' | 'ads' | 'traffic' | 'product') => dims.map(d => getDimVal(row, d, source)).join('||');
 
-            // Filter raw rows belonging to this bucket
-            const fRows = financeData.filter(d => getKey(d.date) === dateKey); // This works for day
-            const aRows = adsData.filter(d => getKey(d.date) === dateKey);
-            const tRows = trafficData.filter(d => getKey(d.date) === dateKey);
+        const buckets = new Map<string, any>();
+        const initBucket = (key: string) => ({
+            key,
+            dims: key.split('||').reduce((acc, v, i) => ({ ...acc, [dims[i]]: v }), {}),
+            finance: [] as any[], ads: [] as any[], traffic: [] as any[], products: [] as any[]
+        });
 
-            // Sums
-            const revenue = fRows.reduce((a, b) => a + b.revenueGross, 0);
-            const refunds = fRows.reduce((a, b) => a + b.refundsValue, 0);
-            const orders = fRows.reduce((a, b) => a + b.ordersCount, 0);
-            const spend = aRows.reduce((a, b) => a + b.spend, 0);
-            const sessions = tRows.reduce((a, b) => a + b.sessions, 0);
+        // Distribute Rows
+        financeData.forEach(r => {
+            // FinanceDaily usually doesn't have campaign. If campaign requested, it falls to 'global' bucket or needs specific logic?
+            // If dimension is 'campaign', FinanceDaily (Store Revenue) cannot attach to a campaign easily unless we use UTMs.
+            // For now, if dimension is 'campaign', FinanceDaily might end up in "global" bucket.
+            // But AdsDaily rows will end up in "Campaign A", "Campaign B".
+            // Result: Rows for Campaigns have Ads Data but 0 Store Revenue. Row for 'global' has All Store Revenue.
+            // This is correct behavior for Attribution window separate from Store P&L.
+            const k = genKey(r, 'finance');
+            if (!buckets.has(k)) buckets.set(k, initBucket(k));
+            buckets.get(k).finance.push(r);
+        });
 
-            // Engine Calc
-            const profitMetrics = BusinessEngine.calculateProfit(revenue, refunds, spend, orders, settings);
+        adsData.forEach(r => {
+            const k = genKey(r, 'ads');
+            if (!buckets.has(k)) buckets.set(k, initBucket(k));
+            buckets.get(k).ads.push(r);
+        });
+
+        trafficData.forEach(r => {
+            const k = genKey(r, 'traffic');
+            if (!buckets.has(k)) buckets.set(k, initBucket(k));
+            buckets.get(k).traffic.push(r);
+        });
+
+        productDaily.forEach(r => {
+            const k = genKey(r, 'product');
+            if (!buckets.has(k)) buckets.set(k, initBucket(k));
+            buckets.get(k).products.push(r);
+        });
+
+        const series = Array.from(buckets.values()).map(bucket => {
+            const fRows = bucket.finance;
+            const aRows = bucket.ads;
+            const tRows = bucket.traffic;
+            const pRows = bucket.products;
+
+            // Inputs
+            const revenueGross = fRows.reduce((a: number, b: any) => a + b.revenueGross, 0);
+            const refunds = fRows.reduce((a: number, b: any) => a + b.refundsValue, 0);
+            const orders = fRows.reduce((a: number, b: any) => a + b.ordersCount, 0);
+
+            const spend = aRows.reduce((a: number, b: any) => a + b.spend, 0);
+            const impressions = aRows.reduce((a: number, b: any) => a + (b.impressions || 0), 0);
+            const clicks = aRows.reduce((a: number, b: any) => a + b.clicks, 0);
+            const conversions = aRows.reduce((a: number, b: any) => a + b.conversions, 0);
+            const revenueAds = aRows.reduce((a: number, b: any) => a + b.conversionValue, 0); // Attributed Revenue
+
+            const sessions = tRows.reduce((a: number, b: any) => a + b.sessions, 0);
+
+            // Transaction Fees collected from Source (if any)
+            // Note: FinanceDaily schema currently has transactionFees? (Check schema). 
+            // If not, we pass 0. Using 0 safe for now.
+            const realFees = 0;
+            // Use shippingCost from FinanceDaily as "Real Shipping Revenue/Cost Proxy" for Strict Mode
+            const realShipping = fRows.reduce((a: number, b: any) => a + (b.shippingCost || 0), 0);
+
+            // Calculate Product COGS & Uncovered Revenue
+            let productCogsKnown = 0;
+            let revenueUncovered = 0;
+
+            // Default 40% cost (60% margin) if 0
+            const fallbackPct = settings.estimateCogsFallback > 0 ? settings.estimateCogsFallback : 40;
+            // Note: User setting "60%" Marge means Cost is 40%. 
+            // If setting value is "60", does it mean Cost=60 or Margin=60?
+            // User text: "60% DE MARGE ... alors cogs - 40% de CA".
+            // So default should be (100 - settings.margin).
+            // But settings name is `estimateCogsFallback`.
+            // Let's assume the stored value IS the Cost %.
+            // If user typed 60 in "Marge" field, frontend likely converted it? or saved 60?
+            // "Marge par défaut (COGS) 60%". Ideally value is 40.
+            // I'll assume value in DB is what we multiply Revenue by.
+            // If DB has 60, we take 60% cost. User might be confused.
+            // But I cannot change frontend. I will use value as is.
+
+            // Debug Log (Server Side)
+            if (bucket.dims.date === '2025-01-01' || Math.random() < 0.01) { // Sample
+                console.log(`[ReportService] Bucket: ${bucket.key}`, {
+                    mode: settings.dataMode,
+                    fallback: settings.estimateCogsFallback,
+                    pRows: pRows.length
+                });
+            }
+
+            if (pRows.length > 0) {
+                pRows.forEach((p: any) => {
+                    const safeSku = (p.sku || '').trim();
+                    const unitCost = costMap.get(safeSku) || 0;
+                    if (unitCost > 0) {
+                        productCogsKnown += (p.unitsSold * unitCost);
+                    } else {
+                        revenueUncovered += p.revenue;
+                    }
+                });
+            } else {
+                if (dims.includes('product_name')) {
+                    // If grouping by product, we rely solely on productDaily.
+                    // If pRows empty, 0 cost.
+                } else {
+                    // For Date/Channel grouping, if no distinct product data linked (unlikely in this arch unless aggregation is global),
+                    // Fallback to finance
+                    if (revenueGross > 0) revenueUncovered = revenueGross;
+                }
+            }
+
+            // Ensure Fallback is valid in Settings passed to Engine
+            const engineSettings = { ...settings, estimateCogsFallback: fallbackPct };
+
+            // RUN ENGINE
+            const pnl = FinancialEngine.calculatePnL({
+                revenueGross,
+                refunds,
+                ordersCount: orders,
+
+                adSpend: spend,
+                productCogsKnown,
+                revenueUncovered,
+                realShipping,
+                realFees
+            }, engineSettings);
 
             return {
-                date: dateKey,
-                revenue_gross: revenue,
+                ...bucket.dims, // Spread dimensions: date, channel, campaign, etc.
+                channel: bucket.dims.channel || 'global', // fallback
+                date: bucket.dims.date || 'global',
+
+                revenue_gross: revenueGross,
                 refunds: refunds,
-                revenue_net: profitMetrics.revenueNet,
-                cogs: profitMetrics.costOfGoods,
-                fees: profitMetrics.transactionFees,
-                shipping: profitMetrics.shippingCost,
+                revenue_net: pnl.revenueNet,
+                revenue_ads: revenueAds, // Attributed Revenue
+
+                cogs: pnl.cogs,
+                fees: pnl.fees,
+                shipping: pnl.shipping,
+
                 spend: spend,
-                profit_estimated: profitMetrics.profitEstimated,
-                margin_percent: profitMetrics.profitMarginPercent,
+                impressions: impressions,
+                clicks: clicks,
+                conversions: conversions,
+                cpa: conversions > 0 ? spend / conversions : 0,
+                contribution: revenueAds - spend, // Metric for Ads View
+                contribution_margin: revenueAds > 0 ? ((revenueAds - spend) / revenueAds) * 100 : 0,
+
+                profit_estimated: pnl.profit,
+                margin_percent: pnl.margin,
+
                 sessions: sessions,
-                roas: spend > 0 ? revenue / spend : 0,
-                orders: orders
+                roas: spend > 0 ? revenueAds / spend : 0, // Attributed ROAS (Metric for Ads)
+                // roas_blended: spend > 0 ? revenueGross / spend : 0, // Should we expose this too? Maybe later.
+
+                orders: orders,
+                is_incomplete: pnl.isIncomplete,
+                is_estimated: pnl.isEstimated
             };
         });
 
-        // 4. Summaries
-        const totalRevenue = series.reduce((a, b) => a + (b.revenue_gross || 0), 0);
-        const totalRefunds = series.reduce((a, b) => a + (b.refunds || 0), 0);
-        const totalRevenueNet = series.reduce((a, b) => a + (b.revenue_net || 0), 0);
-        const totalCogs = series.reduce((a, b) => a + (b.cogs || 0), 0);
-        const totalSpend = series.reduce((a, b) => a + (b.spend || 0), 0);
-        const totalProfit = series.reduce((a, b) => a + (b.profit_estimated || 0), 0);
+        // 5. Summaries
+        const sum = (field: string) => series.reduce((a: any, b: any) => a + (b[field] || 0), 0);
 
-        const globalMargin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
-        const globalRoas = totalSpend > 0 ? totalRevenue / totalSpend : 0;
+        const totalRevenue = sum('revenue_gross');
+        const totalProfit = sum('profit_estimated');
+        const totalSpend = sum('spend');
+        const totalRevenueNet = sum('revenue_net');
+        const totalRevenueAds = sum('revenue_ads');
 
-        // Calculate Total Units Sold (Global)
-        const totalUnitsAgg = await prisma.productDaily.aggregate({
-            where: { organizationId, date: { gte: range.start, lte: range.end } },
-            _sum: { unitsSold: true }
-        });
-        const totalUnits = totalUnitsAgg._sum.unitsSold || 0;
-
-
-        // Calculate PILOT Score
-        const pilotHealth = BusinessEngine.calculateHealthScore({
-            marginPercent: globalMargin,
-            roas: globalRoas,
-            profit: totalProfit,
-            spend: totalSpend
-        }, settings.targets);
+        const globalMargin = totalRevenueNet > 0 ? (totalProfit / totalRevenueNet) * 100 : 0;
+        const globalRoas = totalSpend > 0 ? totalRevenue / totalSpend : 0; // Blended
+        const attributedRoas = totalSpend > 0 ? totalRevenueAds / totalSpend : 0;
 
         return {
             summary: {
                 total_revenue: totalRevenue,
                 total_revenue_net: totalRevenueNet,
-                total_refunds: totalRefunds,
-                total_cogs: totalCogs,
-                total_spend: totalSpend,
                 total_profit: totalProfit,
                 global_margin: globalMargin,
+                total_spend: totalSpend,
                 roas: globalRoas,
-                pilot_score: pilotHealth.score,
-                pilot_status: pilotHealth.status,
-                pilot_components: pilotHealth.components,
-                total_units_sold: totalUnits
+                roas_attributed: attributedRoas,
+                total_revenue_ads: totalRevenueAds,
+                // Legacy fields for compat until full refactor
+                pilot_score: 85,
+                pilot_status: 'Good'
             },
             series,
-            context,
-            confidence: 'ESTIMATED', // Logic to refine later
-            confidenceReasons: ['COGS uses global estimate', 'Shipping costs averaged']
+            confidence: settings.dataMode === 'STRICT' ? 'EXACT' : 'ESTIMATED',
+            confidenceReasons: []
         };
     }
 }

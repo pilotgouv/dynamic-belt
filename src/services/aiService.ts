@@ -33,8 +33,10 @@ export class AiService {
         finance.marginPercent = finance.revenueGross > 0 ? (profitTotal / finance.revenueGross) * 100 : 0;
 
         const settings: any = {
+            estimateCogsFallback: settingsRecord.estimateCogsFallback || 40,
             costProfile: {
-                cogsEstimatedPercent: settingsRecord.cogsEstimatedPercent || 40
+                // shim for legacy engine calls if needed inside analyzeChannelArbitrage
+                cogsEstimatedPercent: settingsRecord.estimateCogsFallback || 40
             }
         };
 

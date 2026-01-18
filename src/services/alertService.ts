@@ -65,9 +65,9 @@ export class AlertService {
         // Ideally we fetch full relation in a real Clean Architecture but for speed:
         if (settingsRecord) {
             const settings: any = {
+                estimateCogsFallback: settingsRecord.estimateCogsFallback || 40,
                 costProfile: {
-                    cogsEstimatedPercent: settingsRecord.cogsEstimatedPercent || 40
-                    // other fields not critical for this specific check
+                    cogsEstimatedPercent: settingsRecord.estimateCogsFallback || 40
                 }
             };
 

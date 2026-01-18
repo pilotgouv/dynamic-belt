@@ -1,111 +1,112 @@
-import { DataSourceConnector, ConnectorResult, ConnectorCapability } from "./types";
+import { JWT } from 'google-auth-library';
 
-interface GA4DailyRow {
-    date: string; // YYYYMMDD
-    sessionSource: string;
-    sessionMedium: string;
-    sessions: string;
-    totalUsers: string;
-    engagementRate: string; // 0-1 as string
-    conversions: string;
-    keyEvents: string; // e.g. add_to_cart
-}
-
-export class GA4Connector implements DataSourceConnector {
-    provider = 'ga4';
-    capabilities: ConnectorCapability[] = ['traffic'];
-    private accessToken: string;
+export class GA4Connector {
+    private client: JWT;
     private propertyId: string;
+    private projectId?: string;
 
-    constructor(accessToken: string, propertyId: string) {
-        this.accessToken = accessToken;
-        this.propertyId = propertyId;
+    constructor(credentials: any) {
+        if (!credentials.clientEmail || !credentials.privateKey || !credentials.propertyId) {
+            throw new Error("Missing GA4 Credentials (clientEmail, privateKey, or propertyId)");
+        }
+
+        // Clean keys just in case (replace escaped newlines if coming from JSON string sometimes)
+        const privateKey = credentials.privateKey.includes('\\n')
+            ? credentials.privateKey.replace(/\\n/g, '\n')
+            : credentials.privateKey;
+
+        this.propertyId = String(credentials.propertyId);
+        this.projectId = credentials.projectId;
+
+        this.client = new JWT({
+            email: credentials.clientEmail,
+            key: privateKey,
+            scopes: ['https://www.googleapis.com/auth/analytics.readonly'],
+        });
     }
 
-    async connect(credentials: any): Promise<boolean> {
-        return await this.validateToken();
-    }
-
-    async validateToken(): Promise<boolean> {
-        // Validation logic for Google token
-        return !!this.accessToken;
-    }
-
-    async sync(fromDate: Date, toDate: Date): Promise<ConnectorResult> {
-        const result: ConnectorResult = {
-            success: false,
-            importedCount: 0,
-            errors: [],
-            financeMetrics: [],
-            productMetrics: [],
-        };
-
+    async validate(): Promise<boolean> {
         try {
-            const startDate = fromDate.toISOString().split('T')[0];
-            const endDate = toDate.toISOString().split('T')[0];
-
-            // Real API Call
-            const response = await fetch(`https://analyticsdata.googleapis.com/v1beta/properties/${this.propertyId}:runReport`, {
+            await this.client.authorize();
+            // Test RunReport (Last 1 day)
+            const res = await this.client.request({
+                url: `https://analyticsdata.googleapis.com/v1beta/properties/${this.propertyId}:runReport`,
                 method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${this.accessToken}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    dateRanges: [{ startDate, endDate }],
-                    dimensions: [
-                        { name: 'date' },
-                        { name: 'sessionSource' },
-                        { name: 'sessionMedium' }
-                    ],
-                    metrics: [
-                        { name: 'sessions' },
-                        { name: 'totalUsers' },
-                        { name: 'engagementRate' },
-                        { name: 'conversions' }
-                    ]
-                })
+                data: {
+                    dateRanges: [{ startDate: 'today', endDate: 'today' }],
+                    metrics: [{ name: 'sessions' }],
+                    limit: 1
+                }
             });
+            return res.status === 200;
+        } catch (e: any) {
+            console.error("GA4 Validation Failed:", e.message);
+            throw new Error(`GA4 Connection Failed: ${e.message}`);
+        }
+    }
 
-            if (!response.ok) {
-                const errText = await response.text();
-                throw new Error(`GA4 API Error (${response.status}): ${errText}`);
+    async sync(from: Date, to: Date, options: { limit?: number, onProgress?: (msg: string) => void } = {}) {
+        await this.client.authorize();
+
+        const startDate = from.toISOString().split('T')[0];
+        const endDate = to.toISOString().split('T')[0];
+
+        // Fetch Daily Traffic Metrics
+        // Dimensions: date, source, medium
+        // Metrics: sessions, totalUsers, conversions, engagementRate
+
+        if (options.onProgress) options.onProgress("Fetching GA4 Report...");
+
+        const response = await this.client.request({
+            url: `https://analyticsdata.googleapis.com/v1beta/properties/${this.propertyId}:runReport`,
+            method: 'POST',
+            data: {
+                dateRanges: [{ startDate, endDate }],
+                dimensions: [
+                    { name: 'date' },
+                    { name: 'sessionSource' }, // "Google", "Direct"
+                    { name: 'sessionMedium' }  // "cpc", "organic"
+                ],
+                metrics: [
+                    { name: 'sessions' },
+                    { name: 'totalUsers' },
+                    { name: 'conversions' }, // Key event count
+                    { name: 'engagementRate' }
+                ],
+                limit: 10000 // Max limit
             }
+        });
 
-            const data = await response.json();
+        const data: any = response.data;
 
-            if (!data.rows || data.rows.length === 0) {
-                result.success = true;
-                return result;
-            }
+        if (!data.rows) {
+            return { success: true, trafficMetrics: [], importedCount: 0 };
+        }
 
-            // Normalize Response
-            const normalizedTraffic = data.rows.map((row: any) => ({
-                date: this.parseDate(row.dimensionValues[0].value), // YYYYMMDD -> YYYY-MM-DD
+        const metrics = data.rows.map((row: any) => {
+            const date = row.dimensionValues[0].value; // YYYYMMDD string usually from GA4 API?
+            // Wait, Data API date format: 'YYYYMMDD'. 
+            // Need to parse.
+            const y = date.substring(0, 4);
+            const m = date.substring(4, 6);
+            const d = date.substring(6, 8);
+            const dateObj = new Date(`${y}-${m}-${d}`);
+
+            return {
+                date: dateObj,
                 source: row.dimensionValues[1].value,
                 medium: row.dimensionValues[2].value,
                 sessions: parseInt(row.metricValues[0].value),
                 users: parseInt(row.metricValues[1].value),
-                engagementRate: parseFloat(row.metricValues[2].value),
-                conversions: parseInt(row.metricValues[3].value),
-                revenue: 0
-            }));
+                conversions: parseInt(row.metricValues[2].value),
+                engagementRate: parseFloat(row.metricValues[3].value)
+            };
+        });
 
-            // Attach to result (using cast as trafficMetrics is added dynamically in types for now)
-            (result as any).trafficMetrics = normalizedTraffic;
-            result.success = true;
-            result.importedCount = normalizedTraffic.length;
-
-        } catch (error: any) {
-            console.error("GA4 Sync Error:", error);
-            result.errors.push(error.message);
-        }
-
-        return result;
-    }
-
-    private parseDate(d: string): string {
-        // 20260114 -> 2026-01-14
-        return `${d.substring(0, 4)}-${d.substring(4, 6)}-${d.substring(6, 8)}`;
+        return {
+            success: true,
+            trafficMetrics: metrics,
+            importedCount: metrics.length
+        };
     }
 }

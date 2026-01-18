@@ -9,9 +9,10 @@ interface KPICardProps {
     suffix?: string;
     description?: string;
     loading?: boolean;
+    icon?: React.ReactNode; // Added
 }
 
-export function KPICard({ title, value, delta, prefix = '', suffix = '', description, loading = false }: KPICardProps) {
+export function KPICard({ title, value, delta, prefix = '', suffix = '', description, loading = false, icon }: KPICardProps) {
 
     if (loading) {
         return (
@@ -29,11 +30,14 @@ export function KPICard({ title, value, delta, prefix = '', suffix = '', descrip
     return (
         <div className="bg-white rounded-xl p-5 border border-gray-100 shadow-[0_2px_10px_rgba(0,0,0,0.02)] hover:shadow-[0_8px_30px_rgba(0,0,0,0.04)] transition-all duration-300">
             <div className="flex justify-between items-start mb-2">
-                <h3 className="text-sm font-medium text-gray-500 tracking-wide">{title}</h3>
+                <div className="flex items-center gap-2">
+                    {icon && <div className="text-gray-400 opacity-80">{icon}</div>}
+                    <h3 className="text-sm font-medium text-gray-500 tracking-wide">{title}</h3>
+                </div>
                 {delta !== undefined && (
                     <div className={`flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full ${isPositive ? 'bg-green-50 text-green-700' :
-                            isNegative ? 'bg-red-50 text-red-700' :
-                                'bg-gray-50 text-gray-500'
+                        isNegative ? 'bg-red-50 text-red-700' :
+                            'bg-gray-50 text-gray-500'
                         }`}>
                         {isPositive ? <ArrowUpRight size={12} /> : isNegative ? <ArrowDownRight size={12} /> : <Minus size={12} />}
                         {Math.abs(delta).toFixed(1)}%

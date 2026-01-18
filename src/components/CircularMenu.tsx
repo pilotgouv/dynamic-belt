@@ -10,10 +10,11 @@ interface CircularMenuProps {
     isOpen: boolean;
     onClose: () => void;
     onSync: () => void;
-    isSyncing: boolean;
+    isSyncing?: boolean;
+    syncProgress?: number;
 }
 
-export default function CircularMenu({ isOpen, onClose, onSync, isSyncing }: CircularMenuProps) {
+export default function CircularMenu({ isOpen, onClose, onSync, isSyncing, syncProgress }: CircularMenuProps) {
     const router = useRouter();
 
     if (!isOpen) return null;

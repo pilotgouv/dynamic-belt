@@ -17,16 +17,16 @@ export async function POST(req: NextRequest) {
         // Let's assume User plan enforcement for simplicity/compliance with prompt.
         const user = await prisma.user.findUnique({ where: { id: session.user.id } });
 
-        if (user?.plan === 'free') {
-            const count = await prisma.reportDefinition.count({
-                where: { organizationId }
-            });
-            if (count >= 1) {
-                return NextResponse.json({
-                    error: "Plan Gratuit limité à 1 rapport sauvegardé. Passez Premium."
-                }, { status: 403 });
-            }
-        }
+        // if (user?.plan === 'free') {
+        //     const count = await prisma.reportDefinition.count({
+        //         where: { organizationId }
+        //     });
+        //     if (count >= 1) {
+        //         return NextResponse.json({
+        //             error: "Plan Gratuit limité à 1 rapport sauvegardé. Passez Premium."
+        //         }, { status: 403 });
+        //     }
+        // }
 
         const report = await prisma.reportDefinition.create({
             data: {

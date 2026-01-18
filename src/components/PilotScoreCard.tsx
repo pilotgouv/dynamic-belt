@@ -43,18 +43,21 @@ export function PilotScoreCard() {
     let textColor = "text-emerald-900";
     let statusText = "Excellent";
     let ringColor = "#10b981";
+    let pulseColor = "from-emerald-200/40"; // Default green pulse
 
     if (scoreTotal < 80) {
         scoreGradient = "from-amber-400 to-amber-600";
         textColor = "text-slate-800";
         statusText = "Attention";
         ringColor = "#f59e0b";
+        pulseColor = "from-amber-200/40";
     }
     if (scoreTotal < 50) {
         scoreGradient = "from-rose-400 to-rose-600";
         textColor = "text-rose-900";
         statusText = "Fragile";
         ringColor = "#ef4444";
+        pulseColor = "from-rose-200/40";
     }
 
     const radius = 52;
@@ -69,6 +72,9 @@ export function PilotScoreCard() {
         <div className="relative w-full h-full font-montserrat">
             {/* MAIN CARD */}
             <div className="bg-white rounded-[24px] shadow-sm border border-slate-200/60 p-6 flex flex-col h-full justify-between gap-6 relative overflow-hidden group hover:shadow-md transition-all duration-500">
+
+                {/* Heartbeat Animation Layer */}
+                <div className={`absolute top-0 left-0 w-[600px] h-[600px] -translate-x-1/3 -translate-y-1/4 bg-[radial-gradient(circle,var(--tw-gradient-stops))] ${pulseColor} via-transparent to-transparent pointer-events-none z-0 animate-pulse`} style={{ animationDuration: '4s' }} />
 
                 {/* Header */}
                 <div className="flex justify-between items-center z-10">

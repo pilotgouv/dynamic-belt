@@ -168,9 +168,10 @@ export class PilotService {
 
         // Robust Fallback Mapping
         connections.forEach(c => {
-            if (['woocommerce', 'shopify', 'amazon_seller'].includes(c.provider)) connectedTypes.add('sales');
-            if (['google_ads', 'meta_ads', 'tiktok_ads'].includes(c.provider)) connectedTypes.add('ads');
-            if (['ga4'].includes(c.provider)) connectedTypes.add('traffic');
+            const p = c.provider.toLowerCase(); // Handle Enum Case
+            if (['woocommerce', 'shopify', 'amazon_seller'].includes(p)) connectedTypes.add('sales');
+            if (['google_ads', 'meta_ads', 'tiktok_ads'].includes(p)) connectedTypes.add('ads');
+            if (['ga4'].includes(p)) connectedTypes.add('traffic');
         });
 
         const connectedTypesArray = Array.from(connectedTypes);

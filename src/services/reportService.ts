@@ -289,6 +289,12 @@ export class ReportService {
                 roas: globalRoas,
                 roas_attributed: attributedRoas,
                 total_revenue_ads: totalRevenueAds,
+
+                // Explicit Breakdown Totals
+                total_cogs: sum('cogs'),
+                total_shipping: sum('shipping'),
+                total_fees: sum('fees'),
+
                 // Legacy fields for compat until full refactor
                 pilot_score: 85,
                 pilot_status: 'Good'

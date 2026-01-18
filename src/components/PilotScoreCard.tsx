@@ -33,7 +33,18 @@ export function PilotScoreCard() {
             .catch(err => setLoading(false));
     }, []);
 
-    if (loading) return <div className="w-full h-[420px] bg-slate-50/50 animate-pulse rounded-3xl border border-slate-200/60"></div>;
+    if (loading) return (
+        <div className="w-full h-[420px] bg-white rounded-[24px] border border-slate-200/60 shadow-sm flex items-center justify-center">
+            <video
+                src="/loaderpilot_ultralight.mp4"
+                autoPlay
+                loop
+                muted
+                playsInline
+                className="w-20 h-20 opacity-80 mix-blend-multiply filter contrast-125"
+            />
+        </div>
+    );
     if (!data) return <div className="w-full h-[420px] border border-dashed border-slate-200 rounded-3xl flex items-center justify-center text-slate-400 font-montserrat font-medium">Verdict indisponible</div>;
 
     const { scoreTotal, breakdown, actions } = data;

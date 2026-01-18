@@ -42,8 +42,8 @@ export async function POST(req: Request) {
             headers = [
                 { key: 'date', label: 'Date' },
                 { key: 'orderNumber', label: 'Commande' },
-                { key: 'shippingRevenue', label: 'Payé par Client' },
-                { key: 'value', label: 'Coût Livraison' },
+                { key: 'shippingRevenue', label: 'Encaissé (Client)' },
+                { key: 'value', label: 'Coût (Payé par vous)' },
                 { key: 'status', label: 'Type' }
             ];
 

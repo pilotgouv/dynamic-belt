@@ -50,13 +50,17 @@ export async function GET(req: Request) {
         });
 
         let payload = [];
+        let dailyPayload: any[] = [];
         let isFallback = trafficData.length === 0;
 
         if (isFallback) {
             // Aggregate FinanceDaily by Channel
             const manualMap = new Map<string, any>();
+            // Aggregate Daily for Chart/Table
+            const dailyMap = new Map<string, any>();
 
             financeData.forEach(day => {
+                // Sources 
                 const source = mapChannelToSource(day.channel);
                 if (!manualMap.has(source)) {
                     manualMap.set(source, {
@@ -72,11 +76,24 @@ export async function GET(req: Request) {
                 node.orders += day.ordersCount;
                 node.revenue += day.revenueNet;
                 node.profit += day.profitEstimated;
+
+                // Daily
+                const dateKey = day.date.toISOString().split('T')[0];
+                if (!dailyMap.has(dateKey)) {
+                    dailyMap.set(dateKey, { date: dateKey, revenue: 0, orders: 0, sessions: 0 });
+                }
+                const dNode = dailyMap.get(dateKey);
+                dNode.revenue += day.revenueNet;
+                dNode.orders += day.ordersCount;
             });
             payload = Array.from(manualMap.values());
+            dailyPayload = Array.from(dailyMap.values()).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
         } else {
             // Aggregate TrafficDaily
             const aggMap = new Map<string, any>();
+            const dailyMap = new Map<string, any>();
+
             trafficData.forEach(day => {
                 const key = `${day.source}/${day.medium}`;
                 if (!aggMap.has(key)) {
@@ -93,10 +110,19 @@ export async function GET(req: Request) {
                 node.sessions += day.sessions;
                 node.orders += day.conversions;
                 node.revenue += day.revenue;
-                // TrafficDaily doesn't have profit usually?
-                // We might need to join? For now assume 0 or estimate.
+
+                // Daily
+                const dateKey = day.date.toISOString().split('T')[0];
+                if (!dailyMap.has(dateKey)) {
+                    dailyMap.set(dateKey, { date: dateKey, revenue: 0, orders: 0, sessions: 0 });
+                }
+                const dNode = dailyMap.get(dateKey);
+                dNode.revenue += day.revenue;
+                dNode.orders += day.conversions;
+                dNode.sessions += day.sessions;
             });
             payload = Array.from(aggMap.values());
+            dailyPayload = Array.from(dailyMap.values()).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
         }
 
         // Totals
@@ -107,6 +133,7 @@ export async function GET(req: Request) {
 
         return NextResponse.json({
             sources: payload.sort((a, b) => b.revenue - a.revenue),
+            daily: dailyPayload,
             summary: {
                 revenue: totalRevenue,
                 orders: totalOrders,

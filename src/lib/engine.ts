@@ -147,6 +147,41 @@ export class BusinessEngine {
     }
 
     /**
+     * Helper for Pilot Service to calculate PnL consistent with Finance View
+     * including Fiscal Settings (Social Charges, Tax) which might not be in DB sums.
+     */
+    static calculatePnL_SimpleForPilot(
+        inputs: {
+            revenueGross: number,
+            revenueNet: number,
+            cogs: number,
+            adSpend: number,
+            ordersCount: number,
+            shipping: number,
+            fees: number
+        },
+        settings: UserSettings
+    ): { profit: number } {
+
+        let socialCharges = 0;
+        if (settings.socialChargesEnabled) {
+            socialCharges = inputs.revenueGross * ((settings.socialChargesPercent || 0) / 100);
+        }
+
+        let incomeTax = 0;
+        if (settings.incomeTaxEnabled) {
+            incomeTax = inputs.revenueGross * ((settings.incomeTaxPercent || 0) / 100);
+        }
+
+        // Cogs/Shipping/Fees are taken from DB Sum. 
+        // If DB Sum is 0, we trust it (or Pilot would need heavier re-computation).
+        const totalCosts = inputs.cogs + inputs.adSpend + inputs.shipping + inputs.fees + socialCharges + incomeTax;
+        const profit = inputs.revenueNet - totalCosts;
+
+        return { profit };
+    }
+
+    /**
      * V6.0 - Legacy Health Score (Keep for ReportService compatibility until refactor)
      */
     static calculateHealthScore(

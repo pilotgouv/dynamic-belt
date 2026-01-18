@@ -77,7 +77,7 @@ export default function TrafficView({ orgId }: TrafficViewProps) {
 
     const formatCurrency = (val: number) => new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', minimumFractionDigits: 0 }).format(val || 0);
 
-    const { summary, sources: rawSources, is_fallback } = data || {};
+    const { summary, sources: rawSources, is_fallback, daily } = data || {};
     const hasData = summary?.revenue > 0;
 
     const sources = React.useMemo(() => {
@@ -233,6 +233,58 @@ export default function TrafficView({ orgId }: TrafficViewProps) {
                 data={data}
                 orgId={orgId}
             />
+
+            {/* --- DAILY TABLE SECTION --- */}
+            <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden p-8">
+                <div className="flex justify-between items-center mb-6">
+                    <div>
+                        <h3 className="text-lg font-bold text-slate-900">Activité & Trésorerie Quotidienne</h3>
+                        <p className="text-xs text-slate-400 font-medium mt-1">Détail journalier des flux entrants et de la conversion.</p>
+                    </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                    <table className="w-full text-sm text-left">
+                        <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-[10px] tracking-wider border-y border-slate-100">
+                            <tr>
+                                <th className="px-6 py-4">Date</th>
+                                <th className="px-6 py-4 text-right">Sessions</th>
+                                <th className="px-6 py-4 text-right">Commandes</th>
+                                <th className="px-6 py-4 text-right">Chiffre d'Affaires</th>
+                                <th className="px-6 py-4 text-right">Taux de Conv.</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-50">
+                            {daily && daily.length > 0 ? (
+                                daily.map((day: any, i: number) => {
+                                    const dateStr = new Date(day.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+                                    const conversion = day.sessions > 0 ? (day.orders / day.sessions) * 100 : 0;
+
+                                    return (
+                                        <tr key={i} className="hover:bg-slate-50/50 transition-colors group">
+                                            <td className="px-6 py-4 font-medium text-slate-700">{dateStr}</td>
+                                            <td className="px-6 py-4 text-right font-mono text-slate-500">{day.sessions || '—'}</td>
+                                            <td className="px-6 py-4 text-right font-mono text-slate-900 font-bold">{day.orders}</td>
+                                            <td className="px-6 py-4 text-right font-bold text-emerald-700 bg-emerald-50/10 group-hover:bg-emerald-50/30 transition-colors">
+                                                {formatCurrency(day.revenue)}
+                                            </td>
+                                            <td className="px-6 py-4 text-right">
+                                                <span className={`px-2 py-1 rounded text-[10px] font-bold ${conversion > 1.5 ? 'bg-green-100 text-green-700' : conversion > 0.5 ? 'bg-amber-100 text-amber-700' : 'bg-red-50 text-red-400'}`}>
+                                                    {conversion.toFixed(2)}%
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    )
+                                })
+                            ) : (
+                                <tr>
+                                    <td colSpan={5} className="px-6 py-12 text-center text-slate-400">Aucune donnée journalière disponible pour cette période.</td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
 
         </div>
     );

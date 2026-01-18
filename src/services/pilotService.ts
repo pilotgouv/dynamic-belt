@@ -1,6 +1,6 @@
 
 import { prisma } from "@/lib/prisma";
-import { BusinessEngine } from "@/lib/engine";
+import { BusinessEngine, DEFAULT_SETTINGS } from "@/lib/engine";
 
 export class PilotService {
 
@@ -10,7 +10,21 @@ export class PilotService {
      */
     static async generateScore(organizationId: string, range: { start: Date, end: Date }) {
 
-        // 1. Fetch Finance Stats (Current Period)
+        // 0. Fetch Settings for accurate PnL
+        const settingsRecord = await prisma.settings.findFirst({ where: { organizationId } }); // Correct table name
+
+        // Merge defaults
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            ...settingsRecord, // Overrides defaults with DB values
+            // Ensure boolean fields are boolean (DB might be null if optional, but schema has defaults)
+            socialChargesEnabled: settingsRecord?.socialChargesEnabled ?? false,
+            socialChargesPercent: settingsRecord?.socialChargesPercent ?? 0,
+            incomeTaxEnabled: settingsRecord?.incomeTaxEnabled ?? false,
+            incomeTaxPercent: settingsRecord?.incomeTaxPercent ?? 0,
+        } as any; // Cast to any or UserSettings to avoid strict type mismatch on mismatching ID fields or similar
+
+        // 1. Fetch Finance Stats (Current Period) - Aggregate components for Real Calculation
         const financeAgg = await prisma.financeDaily.aggregate({
             where: {
                 organizationId,
@@ -19,22 +33,40 @@ export class PilotService {
             _sum: {
                 revenueGross: true,
                 revenueNet: true,
-                profitEstimated: true,
-                refundsValue: true
+                profitEstimated: true, // Legacy
+                refundsValue: true,
+                cogs: true,           // CORRECT FIELD
+                adSpendTotal: true,   // CORRECT FIELD
+                shippingCost: true,   // CORRECT FIELD
+                fees: true,           // CORRECT FIELD
+                ordersCount: true
             }
         });
+
+        // Use FinancialEngine to calculate Real Profit (aligned with Dashboard)
+        const { profit: profitReal } = BusinessEngine.calculatePnL_SimpleForPilot(
+            {
+                revenueGross: financeAgg._sum.revenueGross || 0,
+                revenueNet: financeAgg._sum.revenueNet || 0,
+                cogs: financeAgg._sum.cogs || 0,
+                adSpend: financeAgg._sum.adSpendTotal || 0,
+                ordersCount: financeAgg._sum.ordersCount || 0,
+                shipping: financeAgg._sum.shippingCost || 0,
+                fees: financeAgg._sum.fees || 0
+            },
+            settings
+        );
 
         const finance = {
             revenueGross: financeAgg._sum.revenueGross || 0,
             revenueNet: financeAgg._sum.revenueNet || 0,
-            profitReal: financeAgg._sum.profitEstimated || 0,
+            profitReal: profitReal, // Use calculated profit
             refunds: financeAgg._sum.refundsValue || 0
         };
 
         // 2. Fetch Finance Stats (Previous Period)
-        // Calculate previous range
         const duration = range.end.getTime() - range.start.getTime();
-        const prevEnd = new Date(range.start.getTime() - 24 * 60 * 60 * 1000); // Day before start
+        const prevEnd = new Date(range.start.getTime() - 24 * 60 * 60 * 1000);
         const prevStart = new Date(prevEnd.getTime() - duration);
 
         const prevFinanceAgg = await prisma.financeDaily.aggregate({
@@ -43,16 +75,34 @@ export class PilotService {
                 date: { gte: prevStart, lte: prevEnd }
             },
             _sum: {
+                revenueGross: true,
                 revenueNet: true,
-                profitEstimated: true
+                cogs: true,
+                adSpendTotal: true,
+                shippingCost: true,
+                fees: true,
+                ordersCount: true
             }
         });
+
+        const { profit: profitRealPrev } = BusinessEngine.calculatePnL_SimpleForPilot(
+            {
+                revenueGross: prevFinanceAgg._sum.revenueGross || 0,
+                revenueNet: prevFinanceAgg._sum.revenueNet || 0,
+                cogs: prevFinanceAgg._sum.cogs || 0,
+                adSpend: prevFinanceAgg._sum.adSpendTotal || 0,
+                ordersCount: prevFinanceAgg._sum.ordersCount || 0,
+                shipping: prevFinanceAgg._sum.shippingCost || 0,
+                fees: prevFinanceAgg._sum.fees || 0
+            },
+            settings
+        );
 
         const trend = {
             revenueNetCurrent: finance.revenueNet,
             revenueNetPrev: prevFinanceAgg._sum.revenueNet || 0,
-            profitRealCurrent: finance.profitReal,
-            profitRealPrev: prevFinanceAgg._sum.profitEstimated || 0
+            profitRealCurrent: profitReal,
+            profitRealPrev: profitRealPrev
         };
 
         // 3. Fetch Ads Stats (Current)
@@ -74,8 +124,6 @@ export class PilotService {
 
         // 4. Risk Analysis (Concentration)
         // A. Product Concentration
-        // Get total profit (we have it in finance.profitReal, but let's trust ProductDaily aggregation for item-level profit)
-        // Actually ProductDaily.profitEstimated is a good proxy.
         const topProduct = await prisma.productDaily.groupBy({
             by: ['sku'],
             where: { organizationId, date: { gte: range.start, lte: range.end } },
@@ -85,7 +133,7 @@ export class PilotService {
         });
 
         const topProfit = topProduct[0]?._sum?.profitEstimated || 0;
-        const totalProfitProxy = Math.max(finance.profitReal, 1); // Avoid div by zero
+        const totalProfitProxy = Math.max(finance.profitReal, 1);
         const topSkuProfitShare = (topProfit / totalProfitProxy) * 100;
 
         // B. Channel Concentration
@@ -110,15 +158,15 @@ export class PilotService {
             refundsRate
         };
 
-        // 5. Data Completeness
+        // 5. Data Completeness - Relaxed (Any status)
         const connections = await prisma.connection.findMany({
-            where: { organizationId, status: 'ACTIVE' },
+            where: { organizationId }, // Removed status filter
             select: { tags: true, provider: true }
         });
 
         const connectedTypes = new Set<string>(connections.flatMap(c => (c.tags as string[]) || []));
 
-        // Robust Fallback Mapping (Reference engine.ts expectation: 'sales', 'ads', 'traffic')
+        // Robust Fallback Mapping
         connections.forEach(c => {
             if (['woocommerce', 'shopify', 'amazon_seller'].includes(c.provider)) connectedTypes.add('sales');
             if (['google_ads', 'meta_ads', 'tiktok_ads'].includes(c.provider)) connectedTypes.add('ads');
@@ -126,9 +174,6 @@ export class PilotService {
         });
 
         const connectedTypesArray = Array.from(connectedTypes);
-        // Map common provider names to tags if tags aren't populated strictly
-        // For robustness, check providers too if needed, but sticking to logic.
-        // Assuming tags are populated like ['sales', 'ads'].
 
         // 6. Calculate Score
         const pilotScore = BusinessEngine.calculatePilotScoreV2({

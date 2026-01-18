@@ -71,7 +71,7 @@ export function PilotScoreCard() {
     return (
         <div className="relative w-full h-full font-montserrat">
             {/* GLOWING PULSE BEHIND */}
-            <div className={`absolute -inset-0.5 rounded-[26px] ${glowColor} opacity-20 blur-xl animate-pulse transition-all duration-1000`} style={{ animationDuration: '3s' }} />
+            <div className={`absolute inset-0 rounded-[26px] ${glowColor} blur-lg animate-heartbeat transition-all duration-1000`} />
 
             {/* MAIN CARD */}
             <div className="bg-white rounded-[24px] shadow-sm border border-slate-200/60 p-6 flex flex-col h-full justify-between gap-6 relative overflow-hidden group hover:shadow-md transition-all duration-500 z-10">

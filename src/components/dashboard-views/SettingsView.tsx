@@ -124,8 +124,8 @@ export default function SettingsView({ orgId, logs }: { orgId: string, logs?: an
                         {settings.dataMode === 'ESTIMATE' && (
                             <div className="p-5 flex items-center justify-between border-b border-gray-100 last:border-0 bg-indigo-50/10">
                                 <div>
-                                    <div className="font-semibold text-indigo-900 text-sm">Marge par défaut (COGS)</div>
-                                    <div className="text-xs text-indigo-600/80 mt-0.5">Valeur utilisée si le coût produit est introuvable</div>
+                                    <div className="font-semibold text-indigo-900 text-sm">Coût par défaut (COGS %)</div>
+                                    <div className="text-xs text-indigo-600/80 mt-0.5">Ex: Pour 60% de marge, indiquez 40.</div>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <SmartInput

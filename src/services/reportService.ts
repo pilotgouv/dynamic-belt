@@ -42,7 +42,7 @@ export class ReportService {
             shippingCostValue: settingsRecord?.shippingCostValue ?? 0,
             paymentFeePercent: settingsRecord?.paymentFeePercent ?? 0,
             paymentFeeFixed: settingsRecord?.paymentFeeFixed ?? 0,
-            dataMode: (settingsRecord?.dataMode as any) || 'STRICT',
+            dataMode: ((settingsRecord?.dataMode as any) || 'STRICT').toUpperCase(),
             estimateCogsFallback: settingsRecord?.estimateCogsFallback ?? 0,
             targets: {
                 minRoas: settingsRecord?.minRoasTarget ?? 2.5,
@@ -164,8 +164,8 @@ export class ReportService {
             // Note: FinanceDaily schema currently has transactionFees? (Check schema). 
             // If not, we pass 0. Using 0 safe for now.
             const realFees = 0;
-            // Use shippingCost from FinanceDaily as "Real Shipping Revenue/Cost Proxy" for Strict Mode
-            const realShipping = fRows.reduce((a: number, b: any) => a + (b.shippingCost || 0), 0);
+            // Disable Shipping Revenue proxy. Rely on Rule for Cost.
+            const realShipping = 0;
 
             // Calculate Product COGS & Uncovered Revenue
             let productCogsKnown = 0;
